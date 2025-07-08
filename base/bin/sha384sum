@@ -1,0 +1,1 @@
+coreutils --coreutils-prog=sha384sum "$@"

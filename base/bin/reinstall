@@ -1,0 +1,35 @@
+
+TARGET_DIR="/data/data/com.manager.ssb/files/usr"
+
+# 第一级确认：基础警告
+echo "警告！此操作将永久删除目录 $TARGET_DIR 及其所有内容。"
+read -p "确定要继续吗？(输入大写的 DELETE 确认): " confirm1
+
+# 第二级确认：权限验证
+if [ "$confirm1" == "DELETE" ]; then
+    echo -e "\n[二次警告] 你将删除系统级目录 ($TARGET_DIR)"
+    read -p "请复述要删除的完整路径以确认: " confirm2
+else
+    echo "操作已取消 (1级验证失败)"
+    exit 1
+fi
+
+# 第三级确认：路径匹配
+if [ "$confirm2" == "$TARGET_DIR" ]; then
+    echo -e "\n[最终警告] 此操作不可逆！将永久删除 $TARGET_DIR"
+    read -p "输入 'ERASE_ALL' 执行删除: " confirm3
+    
+    if [ "$confirm3" == "ERASE_ALL" ]; then
+        echo "开始安全删除操作..."
+        if rm -rf "$TARGET_DIR"; then
+            echo "删除成功完成"
+        else
+            echo "删除过程中出错！请检查权限和路径"
+            exit 1
+        fi
+    else
+        echo "操作已取消 (3级验证失败)"
+    fi
+else
+    echo "操作已取消 (2级路径不匹配)"
+fi
