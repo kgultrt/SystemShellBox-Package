@@ -199,6 +199,7 @@ configure_settings() {
                        5 "CoreUtils 版本 [$COREUTILS_VERSION]" \
                        6 "Bash 版本 [$BASH_VERSION]" \
                        7 "是否编译 Python [$COMP_PYTHON]" \
+                       8 "需要对齐 ELF 头 [$NEED_CLEAN_ELF]" \
                        0 "返回" \
                        3>&1 1>&2 2>&3 3>&-)
         
@@ -236,6 +237,12 @@ configure_settings() {
                     true "启用" \
                     false "禁用 (推荐)" 3>&1 1>&2 2>&3 3>&-)
                 [ -n "$new_choose" ] && export COMP_PYTHON="$new_choose"
+                ;;
+            8)
+                new_choose=$(dialog --menu "选择:" 12 30 5 \
+                    true "启用" \
+                    false "禁用" 3>&1 1>&2 2>&3 3>&-)
+                [ -n "$new_choose" ] && export NEED_CLEAN_ELF="$new_choose"
                 ;;
             0) break ;;
             *) ;;
@@ -287,15 +294,21 @@ install_dependencies() {
 }
 
 clone_termux_elf_cleaner() {
-    echo "克隆termux-elf-cleaner仓库..."
-    git clone https://github.com/termux/termux-elf-cleaner.git
+    case ${NEED_CLEAN_ELF} in
+        "true")
+            echo "克隆termux-elf-cleaner仓库..."
+            git clone https://github.com/termux/termux-elf-cleaner.git
+            echo "应用补丁..."
+            cd termux-elf-cleaner
+            patch -p1 < ../patch/RealignFile/fixcleaner.patch
+            echo "编译..."
+            cmake .
+            make
+            ;;
+        "false")
+            echo "Skip!"
+    esac
     
-    echo "应用补丁..."
-    cd termux-elf-cleaner
-    patch -p1 < ../patch/RealignFile/fixcleaner.patch
-    echo "编译..."
-    cmake .
-    make
     cd $BUILD_PROG_WORKING_DIR
 }
 
@@ -337,11 +350,12 @@ configure_bash() {
     
     ./configure --host="${TARGET_HOST}" \
         --prefix="${APP_INSTALL_DIR}" \
+        --disable-nls \
+        --enable-multibyte \
+        --enable-static-link \
         --without-bash-malloc \
         bash_cv_dev_fd=whacky \
-        bash_cv_func_mblen_broken=yes \
         bash_cv_job_control_missing=present \
-        gl_cv_host_operating_system=Android \
         bash_cv_sys_siglist=yes \
         bash_cv_unusable_rtsigs=no \
         ac_cv_func_mbsnrtowcs=no \
@@ -350,6 +364,7 @@ configure_bash() {
         ac_cv_func_setgrent=no \
         ac_cv_func_endpwent=no \
         ac_cv_func_mblen=no \
+        ac_cv_func_mbrlen=no \
         ac_cv_func_endgrent=no \
         ac_cv_func_getpwnam=no \
         ac_cv_func_getgrnam=no \
@@ -359,7 +374,6 @@ configure_bash() {
         ac_cv_func_strchrnul=no \
         ac_cv_func_sigsetmask=no \
         ac_cv_c_bigendian=no \
-        --disable-nls \
         bash_cv_getcwd_malloc=yes \
         bash_cv_func_sigsetjmp=present
 }
@@ -368,14 +382,6 @@ setup_coreutils() {
     echo "解压源码..."
     tar xf "coreutils-${COREUTILS_VERSION}.tar.xz"
     cd "coreutils-${COREUTILS_VERSION}"
-
-    # 设置环境变量
-    export ac_cv_func_getpwent=no
-    export ac_cv_func_endpwent=no
-    export ac_cv_func_getpwnam=no
-    export ac_cv_func_getpwuid=no
-    export ac_cv_func_sigsetmask=no
-    export ac_cv_c_bigendian=no
     
     setup_toolchain
 }
@@ -409,7 +415,7 @@ apply_patches_bash() {
     patch -p1 < ../patch/bash/11.patch
     patch -p1 < ../patch/bash/12.patch
     patch -p1 < ../patch/bash/13.patch
-    # patch -p1 < ../patch/bash/14.patch
+    patch -p1 < ../patch/bash/15.patch
 }
 
 configure_coreutils() {
@@ -422,7 +428,7 @@ configure_coreutils() {
         --with-gnu-ld \
         --disable-year2038 \
         --enable-no-install-program=pinky,df,users,who,uptime,stdbuf \
-        --with-packager=SuperDevelopmentEnvironment_$(date '+%Y-%m-%d-%H:%M:%S') \
+        --with-packager=SuperDevelopmentEnvironment \
         --enable-shared \
         ac_cv_func_malloc_0_nonnull=yes \
         ac_cv_func_realloc_0_nonnull=yes \
@@ -476,10 +482,17 @@ copy_and_realign() {
     cp coreutils-${COREUTILS_VERSION}/src/coreutils output/
     cp bash-${BASH_VERSION}/bash output/
     
-    echo "重新对齐ELF..."
-    cd termux-elf-cleaner
-    ./termux-elf-cleaner ../output/coreutils
-    ./termux-elf-cleaner ../output/bash
+    case ${NEED_CLEAN_ELF} in
+        "true")
+            echo "重新对齐ELF..."
+            cd termux-elf-cleaner
+            ./termux-elf-cleaner ../output/coreutils
+            ./termux-elf-cleaner ../output/bash
+            ;;
+        "false")
+            echo "Skip 1 thing to do."
+            ;;
+    esac
 }
 
 package_output() {
@@ -518,14 +531,27 @@ setup_toolchain() {
     export CC="${TOOLCHAIN_ROOT}/bin/${TOOL_PREFIX}clang"
     export CXX="${TOOLCHAIN_ROOT}/bin/${TOOL_PREFIX}clang++"
     export AR="${TOOLCHAIN_ROOT}/bin/llvm-ar"
+    export OBJCOPY="${TOOLCHAIN_ROOT}/bin/llvm-objcopy"
+    export OBJDUMP="${TOOLCHAIN_ROOT}/bin/llvm-objdump"
     export RANLIB="${TOOLCHAIN_ROOT}/bin/llvm-ranlib"
     export STRIP="${TOOLCHAIN_ROOT}/bin/llvm-strip"
     export LD="${TOOLCHAIN_ROOT}/bin/ld.lld"
     
     export CFLAGS="-fPIE -fPIC -Os \
     -DNO_MKTIME_Z -D__USE_ANDROID_STDIO -DANDROID_USER_FUNCTIONS \
-    -DHAVE_WORKING_GETPWENT=0 -DHAVE___FPURGE=0 -Wno-everything"
+    -DHAVE___FPURGE=0 -DHANDLE_MULTIBYTE -Wno-everything"
     export LDFLAGS="-fPIE -pie"
+    
+    # 设置环境变量
+    export ac_cv_func_getpwent=no
+    export ac_cv_func_endpwent=no
+    export ac_cv_func_getpwnam=no
+    export ac_cv_func_getpwuid=no
+    export ac_cv_func_sigsetmask=no
+    export ac_cv_c_bigendian=no
+    export ac_cv_func_setgrent=no
+    export ac_cv_func_getgrent=no
+    export ac_cv_func_endgrent=no
 }
 
 unsetup_toolchain() {
@@ -552,6 +578,7 @@ export COREUTILS_VERSION="9.7"
 export BASH_VERSION="5.2.37"
 export COMP_PYTHON="false"
 export ICONV_VERSION="1.18"
+export NEED_CLEAN_ELF="false"
 
 # 检查并安装dialog
 if ! command -v dialog &>/dev/null; then

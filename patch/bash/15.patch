@@ -1,0 +1,11 @@
+--- bash-5.0/bashline.c	2025-08-12 22:47:19.132170994 +0800
++++ bash-5.0.mod/bashline.c	2025-08-12 22:47:52.824170996 +0800
+@@ -2645,7 +2645,7 @@
+      const char *text;
+      int state;
+ {
+-#if defined (__WIN32__) || defined (__OPENNT) || !defined (HAVE_GRP_H)
++#if 1
+   return ((char *)NULL);
+ #else
+   static char *gname = (char *)NULL;
