@@ -1,4 +1,6 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/bash
+
+# set -e
 
 # 带进度条的显示函数
 show_progress() {
@@ -123,7 +125,7 @@ full_build_process() {
     run_step "下载和配置 Bash" configure_bash $current_step $total_steps
     
     ((current_step++))
-    run_step "应用bash补丁" apply_patches_2 $current_step $total_steps
+    run_step "应用bash补丁" apply_patches_bash $current_step $total_steps
     
     ((current_step++))
     run_step "编译 Bash" build_bash $current_step $total_steps
@@ -174,7 +176,7 @@ manual_build_steps() {
             7) echo -e "\n\e[1;34m步骤: 配置Coreutils...\e[0m"; configure_coreutils ;;
             8) echo -e "\n\e[1;34m步骤: 编译Coreutils...\e[0m"; build_coreutils ;;
             9) echo -e "\n\e[1;34m步骤: 下载和配置 Bash...\e[0m"; configure_bash ;;
-            10) echo -e "\n\e[1;34m步骤: 应用 Bash 补丁...\e[0m"; apply_patches_2 ;;
+            10) echo -e "\n\e[1;34m步骤: 应用 Bash 补丁...\e[0m"; apply_patches_bash ;;
             11) echo -e "\n\e[1;34m步骤: 编译 Bash...\e[0m"; build_bash ;;
             12) echo -e "\n\e[1;34m步骤: 复制和重新对齐文件...\e[0m"; copy_and_realign ;;
             13) echo -e "\n\e[1;34m步骤: 打包输出...\e[0m"; package_output ;;
@@ -291,7 +293,9 @@ clone_termux_elf_cleaner() {
     echo "应用补丁..."
     cd termux-elf-cleaner
     patch -p1 < ../patch/RealignFile/fixcleaner.patch
-    bash ../cleaneif.sh
+    echo "编译..."
+    cmake .
+    make
     cd $BUILD_PROG_WORKING_DIR
 }
 
@@ -334,31 +338,32 @@ configure_bash() {
     ./configure --host="${TARGET_HOST}" \
         --prefix="${APP_INSTALL_DIR}" \
         --without-bash-malloc \
-        --enable-largefile \
-        --enable-alias \
-        --enable-history \
-        --enable-readline \
-        --enable-multibyte \
-        --enable-job-control \
-        --enable-array-variables \
-        --enable-shared \
+        bash_cv_dev_fd=whacky \
+        bash_cv_func_mblen_broken=yes \
         bash_cv_job_control_missing=present \
+        gl_cv_host_operating_system=Android \
         bash_cv_sys_siglist=yes \
         bash_cv_unusable_rtsigs=no \
         ac_cv_func_mbsnrtowcs=no \
-        bash_cv_dev_fd=whacky \
         ac_cv_func_getpwent=no \
         ac_cv_func_getgrent=no \
         ac_cv_func_setgrent=no \
         ac_cv_func_endpwent=no \
+        ac_cv_func_mblen=no \
         ac_cv_func_endgrent=no \
         ac_cv_func_getpwnam=no \
         ac_cv_func_getgrnam=no \
         ac_cv_func_getpwuid=no \
         ac_cv_func_mempcpy=no \
         ac_cv_func___fpurge=no \
-        ac_cv_func_strchrnul=no
+        ac_cv_func_strchrnul=no \
+        ac_cv_func_sigsetmask=no \
+        ac_cv_c_bigendian=no \
+        --disable-nls \
+        bash_cv_getcwd_malloc=yes \
+        bash_cv_func_sigsetjmp=present
 }
+
 setup_coreutils() {
     echo "解压源码..."
     tar xf "coreutils-${COREUTILS_VERSION}.tar.xz"
@@ -388,7 +393,7 @@ apply_patches() {
     patch -p1 < ../patch/coreutils/9.patch
 }
 
-apply_patches_2() {
+apply_patches_bash() {
     echo "应用Android补丁..."
     cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
     patch -p1 < ../patch/bash/1.patch
@@ -404,7 +409,7 @@ apply_patches_2() {
     patch -p1 < ../patch/bash/11.patch
     patch -p1 < ../patch/bash/12.patch
     patch -p1 < ../patch/bash/13.patch
-
+    # patch -p1 < ../patch/bash/14.patch
 }
 
 configure_coreutils() {
@@ -437,6 +442,7 @@ configure_coreutils() {
         ac_cv_func_nl_langinfo=no \
         ac_cv_func_syncfs=no \
         ac_cv_func_sethostname=no \
+        ac_cv_func_mbrlen=no \
         ac_cv_c_bigendian=no \
         ac_cv_func_getnameinfo=no \
         ac_cv_func_tzfree=yes \
@@ -453,8 +459,14 @@ build_bash() {
     echo "开始编译..."
     cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
     setup_toolchain
-    $CLEAN_TOOLS mksignames mksyntax
+    
+    # export CFLAGS="${CFLAGS} -DHANDLE_MULTIBYTE"
+    # echo ${CFLAGS}
+    
     make -j$(nproc)
+    
+    unsetup_toolchain
+    setup_toolchain
 }
 
 copy_and_realign() {
@@ -516,10 +528,21 @@ setup_toolchain() {
     export LDFLAGS="-fPIE -pie"
 }
 
+unsetup_toolchain() {
+    unset CC
+    unset CXX
+    unset AR
+    unset RANLIB
+    unset STRIP
+    unset LD
+    unset CFLAGS
+    unset LDFLAGS
+}
+
 # ===================== 初始化和主程序 =====================
 
 # 默认配置
-export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/27.2.12479018"
+export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
 export APP_INSTALL_DIR="/data/data/com.manager.ssb/files/usr"
 export TARGET_ARCH="aarch64"
 export ANDROID_API=21
@@ -538,3 +561,7 @@ fi
 
 # 启动主菜单
 main_menu
+# setup_toolchain
+# configure_bash
+# apply_patches_bash
+# build_bash

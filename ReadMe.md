@@ -1,4 +1,4 @@
-# SSB Packager Build System
+# SSB Package Build System
 
 ## 这是什么？
 这个仓库是应用: System Shell Box 的软件包构建系统
@@ -7,7 +7,9 @@
 
 patch/ 下的大部分内容都来自于 [termux-package] (https://github.com/termux/termux-packages) 仓库
 
-ndk.sh 来自于 [AndroidIDE-NDK] (https://github.com/MrIkso/AndroidIDE-NDK)
+old-ndk-install.sh 来自于 [AndroidIDE-NDK] (https://github.com/MrIkso/AndroidIDE-NDK)
+
+我建议使用install-ndk-for-termux.sh来安装NDK
 
 ## 如何构建？
 若您是在手机上构建:
@@ -30,4 +32,4 @@ ndk.sh 来自于 [AndroidIDE-NDK] (https://github.com/MrIkso/AndroidIDE-NDK)
 ## 概况
 目前所拥有的软件包:
 coreutils 9.7
-bash 5.2.37
+bash 5.2.37 (WIP)
