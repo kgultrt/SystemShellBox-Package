@@ -89,7 +89,7 @@ full_build_process() {
     sleep 3
     
     # 准备进度显示
-    local total_steps=13
+    local total_steps=16
     local current_step=0
     
     # 显示初始进度条
@@ -113,7 +113,7 @@ full_build_process() {
     run_step "解压并配置Coreutils" setup_coreutils $current_step $total_steps
     
     ((current_step++))
-    run_step "应用coreutils补丁" apply_patches $current_step $total_steps
+    run_step "应用Coreutils补丁" apply_patches $current_step $total_steps
     
     ((current_step++))
     run_step "配置Coreutils" configure_coreutils $current_step $total_steps
@@ -129,6 +129,15 @@ full_build_process() {
     
     ((current_step++))
     run_step "编译 Bash" build_bash $current_step $total_steps
+    
+    ((current_step++))
+    run_step "下载和配置 zlib" configure_zlib $current_step $total_steps
+    
+    ((current_step++))
+    run_step "应用zlib补丁" apply_patches_zlib $current_step $total_steps
+    
+    ((current_step++))
+    run_step "编译 zlib" build_zlib $current_step $total_steps
     
     ((current_step++))
     run_step "复制和重新对齐文件" copy_and_realign $current_step $total_steps
@@ -154,15 +163,18 @@ manual_build_steps() {
                      2 "克隆termux-elf-cleaner" \
                      3 "构建环境安装程序" \
                      4 "下载Coreutils源码" \
-                     5 "解压并配置Coreutils" \
+                     5 "解压Coreutils" \
                      6 "应用Coreutils补丁" \
                      7 "配置Coreutils" \
                      8 "编译Coreutils" \
                      9 "下载和配置 Bash" \
                      10 "应用 Bash 补丁" \
                      11 "编译 Bash" \
-                     12 "复制和重新对齐文件" \
-                     13 "打包输出" \
+                     12 "下载和配置 zlib" \
+                     13 "应用 zlib 补丁" \
+                     14 "编译 zlib" \
+                     15 "复制和重新对齐文件" \
+                     16 "打包输出" \
                      0 "返回主菜单" \
                      3>&1 1>&2 2>&3 3>&-)
         
@@ -171,15 +183,18 @@ manual_build_steps() {
             2) echo -e "\n\e[1;34m步骤: 克隆termux-elf-cleaner...\e[0m"; clone_termux_elf_cleaner ;;
             3) echo -e "\n\e[1;34m步骤: 构建环境安装程序...\e[0m"; build_installer ;;
             4) echo -e "\n\e[1;34m步骤: 下载Coreutils源码...\e[0m"; download_coreutils ;;
-            5) echo -e "\n\e[1;34m步骤: 解压并配置Coreutils...\e[0m"; setup_coreutils ;;
+            5) echo -e "\n\e[1;34m步骤: 解压Coreutils...\e[0m"; setup_coreutils ;;
             6) echo -e "\n\e[1;34m步骤: 应用Coreutils补丁...\e[0m"; apply_patches ;;
             7) echo -e "\n\e[1;34m步骤: 配置Coreutils...\e[0m"; configure_coreutils ;;
             8) echo -e "\n\e[1;34m步骤: 编译Coreutils...\e[0m"; build_coreutils ;;
             9) echo -e "\n\e[1;34m步骤: 下载和配置 Bash...\e[0m"; configure_bash ;;
             10) echo -e "\n\e[1;34m步骤: 应用 Bash 补丁...\e[0m"; apply_patches_bash ;;
             11) echo -e "\n\e[1;34m步骤: 编译 Bash...\e[0m"; build_bash ;;
-            12) echo -e "\n\e[1;34m步骤: 复制和重新对齐文件...\e[0m"; copy_and_realign ;;
-            13) echo -e "\n\e[1;34m步骤: 打包输出...\e[0m"; package_output ;;
+            12) echo -e "\n\e[1;34m步骤: 下载和配置 zlib...\e[0m"; configure_zlib ;;
+            13) echo -e "\n\e[1;34m步骤: 应用 zlib 补丁...\e[0m"; apply_patches_zlib ;;
+            14) echo -e "\n\e[1;34m步骤: 编译 zlib...\e[0m"; build_zlib ;;
+            15) echo -e "\n\e[1;34m步骤: 复制和重新对齐文件...\e[0m"; copy_and_realign ;;
+            16) echo -e "\n\e[1;34m步骤: 打包输出...\e[0m"; package_output ;;
             0) break ;;
             *) ;;
         esac
@@ -200,13 +215,14 @@ configure_settings() {
                        6 "Bash 版本 [$BASH_VERSION]" \
                        7 "是否编译 Python [$COMP_PYTHON]" \
                        8 "需要对齐 ELF 头 [$NEED_CLEAN_ELF]" \
+                       9 "zlib 版本 [$ZLIB_VERSION]" \
                        0 "返回" \
                        3>&1 1>&2 2>&3 3>&-)
         
         case $config_choice in
             1) 
                 new_ndk=$(dialog --inputbox "输入Android NDK路径:" 8 50 "$ANDROID_NDK" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_ndk" ] && export ANDROID_NDK="$new_ndk"
+                [ -n "$new_ndk" ] && export ANDROID_NDK="$new_ndk" && export NDK_BUILD="${ANDROID_NDK}/ndk-build"
                 ;;
             2)
                 new_dir=$(dialog --inputbox "输入安装目录:" 8 50 "$APP_INSTALL_DIR" 3>&1 1>&2 2>&3 3>&-)
@@ -244,6 +260,10 @@ configure_settings() {
                     false "禁用" 3>&1 1>&2 2>&3 3>&-)
                 [ -n "$new_choose" ] && export NEED_CLEAN_ELF="$new_choose"
                 ;;
+            9)
+                new_api3=$(dialog --inputbox "输入新的版本号 (不建议更改):" 8 50 "$ZLIB_VERSION" 3>&1 1>&2 2>&3 3>&-)
+                [ -n "$new_api3" ] && export ZLIB_VERSION="$new_api3"
+                ;;
             0) break ;;
             *) ;;
         esac
@@ -254,7 +274,15 @@ configure_settings() {
 clean_output() {
     if dialog --yesno "确定要清理所有输出文件吗?" 7 50; then
         echo "清理输出文件..."
+        
         rm -rf termux-elf-cleaner coreutils-* output bash-*
+        cd installer
+        rm -rf libs obj
+        cd $BUILD_PROG_WORKING_DIR
+        rm -rf base
+        
+        unzip base.zip
+        
         dialog --msgbox "输出文件已清理！" 6 40
     fi
 }
@@ -315,8 +343,25 @@ clone_termux_elf_cleaner() {
 build_installer() {
     echo "构建环境安装程序..."
     cd installer/jni
-    gcc main.c -o installer
-    cp installer $BUILD_PROG_WORKING_DIR/base/home/.term
+    ${NDK_BUILD}
+    
+    case "${TARGET_ARCH}" in
+        aarch64)
+            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/arm64-v8a/installer"
+            ;;
+        arm)
+            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/armeabi-v7a/installer"
+            ;;
+        x86)
+            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/x86/installer"
+            ;;
+        x86_64)
+            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/x86_64/installer"
+            ;;
+    esac
+    
+    cp $INSTALLER_PATH $BUILD_PROG_WORKING_DIR/base/home/.term
+    unset INSTALLER_PATH
     cd $BUILD_PROG_WORKING_DIR
 }
 
@@ -490,7 +535,7 @@ copy_and_realign() {
             ./termux-elf-cleaner ../output/bash
             ;;
         "false")
-            echo "Skip 1 thing to do."
+            echo "Skip!"
             ;;
     esac
 }
@@ -552,6 +597,7 @@ setup_toolchain() {
     export ac_cv_func_setgrent=no
     export ac_cv_func_getgrent=no
     export ac_cv_func_endgrent=no
+    
 }
 
 unsetup_toolchain() {
@@ -569,6 +615,7 @@ unsetup_toolchain() {
 
 # 默认配置
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
+export NDK_BUILD="${ANDROID_NDK}/ndk-build"
 export APP_INSTALL_DIR="/data/data/com.manager.ssb/files/usr"
 export TARGET_ARCH="aarch64"
 export ANDROID_API=21
@@ -576,9 +623,12 @@ export BUILD_PROG_WORKING_DIR=$PWD
 export CLEAN_TOOLS=$PWD/termux-elf-cleaner/termux-elf-cleaner
 export COREUTILS_VERSION="9.7"
 export BASH_VERSION="5.2.37"
+export ZLIB_VERSION="1.3.1"
+export PYTHON_VERSION="3.12.11"
 export COMP_PYTHON="false"
 export ICONV_VERSION="1.18"
 export NEED_CLEAN_ELF="false"
+export PKG_MGR="spm"
 
 # 检查并安装dialog
 if ! command -v dialog &>/dev/null; then
@@ -588,7 +638,3 @@ fi
 
 # 启动主菜单
 main_menu
-# setup_toolchain
-# configure_bash
-# apply_patches_bash
-# build_bash
