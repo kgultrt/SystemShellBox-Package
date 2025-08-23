@@ -16,7 +16,7 @@ class RepoRequestHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         print(f"[HTTP] {self.address_string()} - {format % args}")
 
-def run_server(port=8080):
+def run_server(port=8081):
     print(f"SPM 本地软件源服务器启动于 http://localhost:{port}/")
     print("将 ./repo 目录作为根目录，按 repo/main/index.json 的结构组织")
     print("警告: 不考虑安全性，若你在一个实际上的服务器搭建，请务必修改代码，修复潜在的安全隐患")

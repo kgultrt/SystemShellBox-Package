@@ -2,14 +2,14 @@
 
 # set -e
 
-# 带进度条的显示函数
+# 带进度条的显示函数（统一实现）
 show_progress() {
     local width=50
     local percent=$1
     local completed=$((width * percent / 100))
     local remaining=$((width - completed))
     
-    # 创建进度条字符串
+    # 创建进度条字符串（统一实现）
     local progress_bar="\e[44m"
     for ((i=0; i<completed; i++)); do
         progress_bar+=" "
@@ -20,8 +20,11 @@ show_progress() {
     done
     progress_bar+="\e[0m"
     
-    # 显示进度条
+    # 显示进度条（统一位置）
+    tput sc  # 保存光标位置
+    tput cup 0 0  # 移动到屏幕顶部
     echo -ne "\r[${progress_bar}] ${percent}%"
+    tput rc  # 恢复光标位置
 }
 
 # 更新进度并显示
@@ -29,6 +32,7 @@ update_progress() {
     local current_step=$1
     local total_steps=$2
     local percent=$((100 * current_step / total_steps))
+    
     show_progress $percent
     
     # 完成后换行
@@ -44,11 +48,45 @@ run_step() {
     local step_num=$3
     local total_steps=$4
     
+    # 记录开始时间
+    local start_time=$(date +%s.%N)
+    
     # 显示步骤开始
-    echo -e "\n\e[1;34mStep ${step_num}/${total_steps}: ${step_name}...\e[0m"
+    if [ -z "$IS_QUIET" ] || [ "$IS_QUIET" -ne 1 ]; then
+        echo -e "\n\e[1;34mStep ${step_num}/${total_steps}: ${step_name}...\e[0m"
+    else
+        # 安静模式下显示步骤名称和spinner
+        printf "\e[1;34mStep ${step_num}/${total_steps}: ${step_name}\e[0m "
+    fi
     
     # 执行步骤函数
-    $step_func
+    if [ -z "$IS_QUIET" ] || [ "$IS_QUIET" -ne 1 ]; then
+        # 非安静模式：显示命令输出
+        $step_func
+    else
+        if [ -z "$WRITE_LOG" ] || [ "$WRITE_LOG" -ne 1 ]; then
+            # 安静模式：重定向输出到日志文件并显示spinner
+            ($step_func >> "$LOG_FILE" 2>&1) &
+            local pid=$!
+            spinner $pid
+            wait $pid
+        else
+            ($step_func>/dev/null 2>&1) &
+            local pid=$!
+            spinner $pid
+            wait $pid
+        fi
+    fi
+    
+    # 计算并显示步骤耗时
+    local end_time=$(date +%s.%N)
+    local elapsed_time=$(echo "$end_time - $start_time" | bc | awk '{printf "%.2f", $0}')
+    
+    if [ -z "$IS_QUIET" ] || [ "$IS_QUIET" -ne 1 ]; then
+        echo -e "\e[1;32m✓\e[0m \e[2m(${elapsed_time}s)\e[0m"
+    else
+        printf "\e[1;32m✓\e[0m \e[2m(${elapsed_time}s)\e[0m\n"
+    fi
     
     # 更新进度条
     update_progress $step_num $total_steps
@@ -88,9 +126,17 @@ full_build_process() {
     echo -e "\n\e[1;33m将在3秒后开始...\e[0m"
     sleep 3
     
+    clear
+    
     # 准备进度显示
     local total_steps=16
     local current_step=0
+    
+    # 记录总开始时间（安静模式用）
+    export total_start_time=$(date +%s.%N)
+    trap 'exit' SIGINT SIGTERM
+    
+    echo -e "\n\n"  # 为进度条留出空间
     
     # 显示初始进度条
     echo -e "\n\e[1;32m编译进度:\e[0m"
@@ -216,6 +262,8 @@ configure_settings() {
                        7 "是否编译 Python [$COMP_PYTHON]" \
                        8 "需要对齐 ELF 头 [$NEED_CLEAN_ELF]" \
                        9 "zlib 版本 [$ZLIB_VERSION]" \
+                       10 "安静输出 [$IS_QUIET]" \
+                       11 "在安静输出里保存日志 [$WRITE_LOG]" \
                        0 "返回" \
                        3>&1 1>&2 2>&3 3>&-)
         
@@ -264,6 +312,18 @@ configure_settings() {
                 new_api3=$(dialog --inputbox "输入新的版本号 (不建议更改):" 8 50 "$ZLIB_VERSION" 3>&1 1>&2 2>&3 3>&-)
                 [ -n "$new_api3" ] && export ZLIB_VERSION="$new_api3"
                 ;;
+            10)
+                new_choose=$(dialog --menu "选择:" 12 85 5 \
+                    1 "启用 (不推荐，容易出一些匪夷所思的Bug)" \
+                    0 "禁用" 3>&1 1>&2 2>&3 3>&-)
+                [ -n "$new_choose" ] && export IS_QUIET="$new_choose"
+                ;;
+            11)
+                new_choose=$(dialog --menu "选择:" 12 30 5 \
+                    1 "启用" \
+                    0 "禁用" 3>&1 1>&2 2>&3 3>&-)
+                [ -n "$new_choose" ] && export WRITE_LOG="$new_choose"
+                ;;
             0) break ;;
             *) ;;
         esac
@@ -306,6 +366,14 @@ result_display() {
         echo -e "\e[1;31m编译未完成或出错！请检查日志。\e[0m"
     fi
     echo "========================================================"
+    
+    # 安静模式：显示总耗时
+    if [ -n "$IS_QUIET" ] && [ "$IS_QUIET" -eq 1 ]; then
+        local total_end_time=$(date +%s.%N)
+        local total_elapsed_time=$(echo "$total_end_time - $total_start_time" | bc | awk '{printf "%.2f", $0}')
+        echo -e "\n\e[1;32m✓ 所有步骤完成! 总耗时: ${total_elapsed_time}秒\e[0m"
+    fi
+    
     sleep 5 #给用户留时间查看
 }
 
@@ -313,10 +381,10 @@ result_display() {
 
 install_dependencies() {
     echo "更新包索引..."
-    pkg update -y
+    apt update -y
     
     echo "安装依赖包..."
-    pkg install -y git automake autoconf clang binutils make gettext bison gperf texinfo wget cmake zip dialog
+    apt install -y git automake autoconf clang binutils make gettext bison gperf texinfo wget cmake zip dialog
     
     export BUILD_PROG_WORKING_DIR=$PWD
 }
@@ -433,6 +501,7 @@ setup_coreutils() {
 
 apply_patches() {
     echo "应用Android补丁..."
+    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
     patch -p1 < ../patch/coreutils/1.patch
     patch -p1 < ../patch/coreutils/2.patch
     patch -p1 < ../patch/coreutils/3.patch
@@ -465,6 +534,9 @@ apply_patches_bash() {
 
 configure_coreutils() {
     echo "配置coreutils..."
+    
+    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
+    
     ./configure \
         --host="${TARGET_HOST}" \
         --prefix="${APP_INSTALL_DIR}" \
@@ -503,6 +575,8 @@ configure_coreutils() {
 build_coreutils() {
     echo "开始编译..."
     setup_toolchain
+    
+    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
     make -j$(nproc)
 }
 
@@ -611,6 +685,23 @@ unsetup_toolchain() {
     unset LDFLAGS
 }
 
+# 旋转动画函数（安静模式使用）
+spinner() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='/-\|'
+    local i=0
+    
+    echo
+    
+    while ps -p $pid > /dev/null; do
+        local temp=${spinstr:i++%${#spinstr}:1}
+        printf "\r$temp"
+        sleep $delay
+    done
+    printf "\r \r"
+}
+
 # ===================== 初始化和主程序 =====================
 
 # 默认配置
@@ -629,11 +720,19 @@ export COMP_PYTHON="false"
 export ICONV_VERSION="1.18"
 export NEED_CLEAN_ELF="false"
 export PKG_MGR="spm"
+export IS_QUIET=0
+export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
+export WRITE_LOG=1
 
 # 检查并安装dialog
 if ! command -v dialog &>/dev/null; then
     echo "安装dialog..."
-    pkg install -y dialog
+    apt install -y dialog
+fi
+
+if ! command -v bc &>/dev/null; then
+    echo "bc..."
+    apt install -y bc
 fi
 
 # 启动主菜单
