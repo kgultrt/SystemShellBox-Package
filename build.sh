@@ -83,9 +83,11 @@ run_step() {
     local elapsed_time=$(echo "$end_time - $start_time" | bc | awk '{printf "%.2f", $0}')
     
     if [ -z "$IS_QUIET" ] || [ "$IS_QUIET" -ne 1 ]; then
-        echo -e "\e[1;32m✓\e[0m \e[2m(${elapsed_time}s)\e[0m"
+        echo -e "\e[1;32m[OK]\e[0m \e[2m(${elapsed_time}s)\e[0m"
+        echo
     else
-        printf "\e[1;32m✓\e[0m \e[2m(${elapsed_time}s)\e[0m\n"
+        printf "\e[1;32m[OK]\e[0m \e[2m(${elapsed_time}s)\e[0m\n"
+        echo
     fi
     
     # 更新进度条
@@ -134,7 +136,7 @@ full_build_process() {
     
     # 记录总开始时间（安静模式用）
     export total_start_time=$(date +%s.%N)
-    trap 'exit' SIGINT SIGTERM
+    trap 'echo -e "\rPlease wait... \e[1;31m[FAILED]\e[0m 用户取消操作!" && echo && exit' SIGINT SIGTERM
     
     echo -e "\n\n"  # 为进度条留出空间
     
@@ -371,7 +373,7 @@ result_display() {
     if [ -n "$IS_QUIET" ] && [ "$IS_QUIET" -eq 1 ]; then
         local total_end_time=$(date +%s.%N)
         local total_elapsed_time=$(echo "$total_end_time - $total_start_time" | bc | awk '{printf "%.2f", $0}')
-        echo -e "\n\e[1;32m✓ 所有步骤完成! 总耗时: ${total_elapsed_time}秒\e[0m"
+        echo -e "\n\e[1;32m[OK] 所有步骤完成! 总耗时: ${total_elapsed_time}秒\e[0m"
     fi
     
     sleep 5 #给用户留时间查看
@@ -696,10 +698,11 @@ spinner() {
     
     while ps -p $pid > /dev/null; do
         local temp=${spinstr:i++%${#spinstr}:1}
-        printf "\r$temp"
+        printf "\rPlease wait... $temp"
         sleep $delay
     done
-    printf "\r \r"
+    
+    printf "\rPlease wait... "
 }
 
 # ===================== 初始化和主程序 =====================
@@ -720,7 +723,7 @@ export COMP_PYTHON="false"
 export ICONV_VERSION="1.18"
 export NEED_CLEAN_ELF="false"
 export PKG_MGR="spm"
-export IS_QUIET=0
+export IS_QUIET=1
 export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
 export WRITE_LOG=1
 
