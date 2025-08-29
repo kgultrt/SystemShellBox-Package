@@ -1,5 +1,72 @@
 #!/usr/bin/bash
 
+# ===================== 配置部分 =====================
+export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
+export NDK_BUILD="${ANDROID_NDK}/ndk-build"
+export APP_INSTALL_DIR="/data/data/com.manager.ssb/files/usr"
+export TARGET_ARCH="aarch64"
+export ANDROID_API=21
+export BUILD_PROG_WORKING_DIR=$PWD
+export OUTPUT_LIB_DIR=$BUILD_PROG_WORKING_DIR/output/lib
+export CLEAN_TOOLS=$PWD/termux-elf-cleaner/termux-elf-cleaner
+export COREUTILS_VERSION="9.7"
+export BASH_VERSION="5.2.37"
+export ZLIB_VERSION="1.3.1"
+export PYTHON_VERSION="3.12.11"
+export COMP_PYTHON="false"
+export ICONV_VERSION="1.18"
+export NEED_CLEAN_ELF="false"
+export PKG_MGR="spm"
+export IS_QUIET=0
+export WRITE_LOG=1
+export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
+
+# 步骤定义
+declare -a STEP_NAMES=(
+    "安装依赖"
+    "准备目录"
+    "克隆termux-elf-cleaner"
+    "构建环境安装程序"
+    "下载Coreutils源码"
+    "解压并配置Coreutils"
+    "应用Coreutils补丁"
+    "配置Coreutils"
+    "编译Coreutils"
+    "下载和配置 Bash"
+    "应用bash补丁"
+    "编译 Bash"
+    "下载和配置 zlib"
+    "应用zlib补丁"
+    "编译 zlib"
+    "复制和重新对齐文件"
+    "打包输出"
+)
+
+declare -a STEP_FUNCTIONS=(
+    "install_dependencies"
+    "install_dir"
+    "clone_termux_elf_cleaner"
+    "build_installer"
+    "download_coreutils"
+    "setup_coreutils"
+    "apply_patches"
+    "configure_coreutils"
+    "build_coreutils"
+    "configure_bash"
+    "apply_patches_bash"
+    "build_bash"
+    "configure_zlib"
+    "apply_patches_zlib"
+    "build_zlib"
+    "copy_and_realign"
+    "package_output"
+)
+
+TOTAL_STEPS=${#STEP_NAMES[@]}
+echo ${TOTAL_STEPS}
+
+# ===================== 通用功能函数 =====================
+
 # 带进度条的显示函数
 show_progress() {
     local width=50
@@ -7,7 +74,7 @@ show_progress() {
     local completed=$((width * percent / 100))
     local remaining=$((width - completed))
     
-    # 创建进度条字符串（统一实现）
+    # 创建进度条字符串
     local progress_bar="\e[44m"
     for ((i=0; i<completed; i++)); do
         progress_bar+=" "
@@ -18,26 +85,42 @@ show_progress() {
     done
     progress_bar+="\e[0m"
     
-    # 显示进度条（统一位置）
+    # 显示进度条
     tput sc  # 保存光标位置
     tput cup 0 0  # 移动到屏幕顶部
     echo -ne "\r[${progress_bar}] ${percent}%"
     tput rc  # 恢复光标位置
 }
 
-
 # 更新进度并显示
 update_progress() {
     local current_step=$1
-    local total_steps=$2
-    local percent=$((100 * current_step / total_steps))
+    local percent=$((100 * current_step / TOTAL_STEPS))
     
     show_progress $percent
     
     # 完成后换行
-    if [[ $current_step -eq $total_steps ]]; then
+    if [[ $current_step -eq $TOTAL_STEPS ]]; then
         echo
     fi
+}
+
+# 旋转动画函数（安静模式使用）
+spinner() {
+    local pid=$1
+    local delay=0.05
+    local spinstr='/-\|'
+    local i=0
+    
+    echo
+    
+    while ps -p $pid > /dev/null; do
+        local temp=${spinstr:i++%${#spinstr}:1}
+        printf "\rPlease wait... $temp ($i)"
+        sleep $delay
+    done
+    
+    printf "\rPlease wait... "
 }
 
 # 执行命令并显示进度
@@ -45,17 +128,16 @@ run_step() {
     local step_name="$1"
     local step_func="$2"
     local step_num=$3
-    local total_steps=$4
     
     # 记录开始时间
     local start_time=$(date +%s.%N)
     
     # 显示步骤开始
     if [ -z "$IS_QUIET" ] || [ "$IS_QUIET" -ne 1 ]; then
-        echo -e "\n\e[1;34mStep ${step_num}/${total_steps}: ${step_name}...\e[0m"
+        echo -e "\n\e[1;34mStep ${step_num}/${TOTAL_STEPS}: ${step_name}...\e[0m"
     else
         # 安静模式下显示步骤名称和spinner
-        printf "\e[1;34mStep ${step_num}/${total_steps}: ${step_name}\e[0m "
+        printf "\e[1;34mStep ${step_num}/${TOTAL_STEPS}: ${step_name}\e[0m "
     fi
     
     # 执行步骤函数
@@ -90,31 +172,395 @@ run_step() {
     fi
     
     # 更新进度条
-    update_progress $step_num $total_steps
+    update_progress $step_num
 }
 
-# 主菜单
-main_menu() {
-    while true; do
-        choice=$(dialog --backtitle "Super Development Environment 编译程序" \
-                        --title "主菜单" \
-                        --menu "请选择操作：" 15 50 5 \
-                        1 "完整构建流程" \
-                        2 "手动构建步骤" \
-                        3 "配置设置" \
-                        4 "清理输出" \
-                        0 "退出" \
-                        3>&1 1>&2 2>&3 3>&-)
-        
-        case $choice in
-            1) full_build_process ;;
-            2) manual_build_steps ;;
-            3) configure_settings ;;
-            4) clean_output ;;
-            0) clear && exit 0 ;;
-            *) return ;;
-        esac
+# ===================== 工具链函数 =====================
+
+# 设置工具链
+setup_toolchain() {
+    TOOLCHAIN_ROOT="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64"
+    case "${TARGET_ARCH}" in
+        aarch64)
+            export TARGET_HOST="aarch64-linux-android"
+            export TOOL_PREFIX="${TARGET_HOST}${ANDROID_API}-"
+            ;;
+        arm)
+            export TARGET_HOST="armv7a-linux-androideabi"
+            export TOOL_PREFIX="${TARGET_HOST}${ANDROID_API}-"
+            ;;
+        x86)
+            export TARGET_HOST="i686-linux-android"
+            export TOOL_PREFIX="${TARGET_HOST}${ANDROID_API}-"
+            ;;
+        x86_64)
+            export TARGET_HOST="x86_64-linux-android"
+            export TOOL_PREFIX="${TARGET_HOST}${ANDROID_API}-"
+            ;;
+    esac
+
+    export CC="${TOOLCHAIN_ROOT}/bin/${TOOL_PREFIX}clang"
+    export CXX="${TOOLCHAIN_ROOT}/bin/${TOOL_PREFIX}clang++"
+    export AR="${TOOLCHAIN_ROOT}/bin/llvm-ar"
+    export OBJCOPY="${TOOLCHAIN_ROOT}/bin/llvm-objcopy"
+    export OBJDUMP="${TOOLCHAIN_ROOT}/bin/llvm-objdump"
+    export RANLIB="${TOOLCHAIN_ROOT}/bin/llvm-ranlib"
+    export STRIP="${TOOLCHAIN_ROOT}/bin/llvm-strip"
+    export LD="${TOOLCHAIN_ROOT}/bin/ld.lld"
+    
+    export CFLAGS="-fPIE -fPIC -Os \
+    -DNO_MKTIME_Z -D__USE_ANDROID_STDIO -DANDROID_USER_FUNCTIONS \
+    -DHAVE___FPURGE=0 -DHANDLE_MULTIBYTE -Wno-everything"
+    export LDFLAGS="-fPIE -pie"
+    
+    export LDSHARED="${CC} -fPIE -pie -shared"
+    
+    if [ "$TARGET_ARCH" = "aarch64" ]; then
+        CFLAGS+=" -march=armv8-a+crc"
+        CXXFLAGS+=" -march=armv8-a+crc"
+    fi
+    
+    # 设置环境变量
+    export ac_cv_func_getpwent=no
+    export ac_cv_func_endpwent=no
+    export ac_cv_func_getpwnam=no
+    export ac_cv_func_getpwuid=no
+    export ac_cv_func_sigsetmask=no
+    export ac_cv_c_bigendian=no
+    export ac_cv_func_setgrent=no
+    export ac_cv_func_getgrent=no
+    export ac_cv_func_endgrent=no
+}
+
+unsetup_toolchain() {
+    unset CC
+    unset CXX
+    unset AR
+    unset OBJCOPY
+    unset OBJDUMP
+    unset RANLIB
+    unset STRIP
+    unset LD
+    unset CFLAGS
+    unset CXXFLAGS
+    unset LDFLAGS
+    unset LDSHARED
+}
+
+# ===================== 构建步骤函数 =====================
+
+install_dependencies() {
+    echo "更新包索引..."
+    apt update -y
+    
+    echo "安装依赖包..."
+    apt install -y git automake autoconf clang binutils make gettext bison gperf texinfo wget cmake zip dialog
+    
+    export BUILD_PROG_WORKING_DIR=$PWD
+}
+
+install_dir() {
+    mkdir -p $BUILD_PROG_WORKING_DIR/output
+    mkdir -p $BUILD_PROG_WORKING_DIR/output/lib
+    mkdir -p $BUILD_PROG_WORKING_DIR/output/bin
+    
+    echo "准备完成"
+}
+
+clone_termux_elf_cleaner() {
+    case ${NEED_CLEAN_ELF} in
+        "true")
+            echo "克隆termux-elf-cleaner仓库..."
+            git clone https://github.com/termux/termux-elf-cleaner.git
+            echo "应用补丁..."
+            cd termux-elf-cleaner
+            patch -p1 < ../patch/RealignFile/fixcleaner.patch
+            echo "编译..."
+            cmake .
+            make
+            ;;
+        "false")
+            echo "Skip!"
+    esac
+    
+    cd $BUILD_PROG_WORKING_DIR
+}
+
+build_installer() {
+    echo "构建环境安装程序..."
+    cd installer/jni
+    ${NDK_BUILD}
+    
+    case "${TARGET_ARCH}" in
+        aarch64)
+            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/arm64-v8a/installer"
+            ;;
+        arm)
+            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/armeabi-v7a/installer"
+            ;;
+        x86)
+            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/x86/installer"
+            ;;
+        x86_64)
+            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/x86_64/installer"
+            ;;
+    esac
+    
+    cp $INSTALLER_PATH $BUILD_PROG_WORKING_DIR/base/home/.term
+    unset INSTALLER_PATH
+    cd $BUILD_PROG_WORKING_DIR
+}
+
+download_coreutils() {
+    echo "下载coreutils源码..."
+    COREUTILS_TAR="coreutils-${COREUTILS_VERSION}.tar.xz"
+    
+    if [ ! -f "${COREUTILS_TAR}" ]; then
+        wget -c "https://mirrors.ustc.edu.cn/gnu/coreutils/${COREUTILS_TAR}" || \
+        wget -c "https://ftp.gnu.org/gnu/coreutils/${COREUTILS_TAR}"
+    fi
+}
+
+setup_coreutils() {
+    echo "解压源码..."
+    tar xf "coreutils-${COREUTILS_VERSION}.tar.xz"
+    cd "coreutils-${COREUTILS_VERSION}"
+    
+    setup_toolchain
+}
+
+apply_patches() {
+    echo "应用Android补丁..."
+    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
+    for patch_file in ../patch/coreutils/*.patch; do
+        patch -p1 < $patch_file
     done
+}
+
+configure_coreutils() {
+    echo "配置coreutils..."
+    
+    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
+    
+    ./configure \
+        --host="${TARGET_HOST}" \
+        --prefix="${APP_INSTALL_DIR}" \
+        --enable-single-binary=symlinks \
+        --disable-xattr \
+        --with-gnu-ld \
+        --disable-year2038 \
+        --enable-no-install-program=pinky,df,users,who,uptime,stdbuf \
+        --with-packager=SuperDevelopmentEnvironment \
+        --enable-shared \
+        ac_cv_func_malloc_0_nonnull=yes \
+        ac_cv_func_realloc_0_nonnull=yes \
+        gl_cv_header_working_stdint_h=yes \
+        gl_cv_host_operating_system=Android \
+        ac_cv_func_getpass=yes \
+        gl_cv_func_isnanl_works=yes \
+        ac_cv_func_getpwent=no \
+        ac_cv_func_getgrent=no \
+        ac_cv_func_endpwent=no \
+        ac_cv_func_endgrent=no \
+        ac_cv_func_getpwnam=no \
+        ac_cv_func_getgrnam=no \
+        ac_cv_func_getpwuid=no \
+        ac_cv_func_sigsetmask=no \
+        ac_cv_func_statx=no \
+        ac_cv_func_nl_langinfo=no \
+        ac_cv_func_syncfs=no \
+        ac_cv_func_sethostname=no \
+        ac_cv_func_mbrlen=no \
+        ac_cv_c_bigendian=no \
+        ac_cv_func_getnameinfo=no \
+        ac_cv_func_tzfree=yes \
+        ac_cv_func_tzalloc=yes
+}
+
+build_coreutils() {
+    echo "开始编译..."
+    setup_toolchain
+    
+    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
+    make -j$(nproc)
+}
+
+configure_bash() {
+    cd $BUILD_PROG_WORKING_DIR
+    
+    echo "下载bash源码..."
+    BASH_TAR="bash-${BASH_VERSION}.tar.gz"
+    
+    if [ ! -f "${BASH_TAR}" ]; then
+        wget -c "https://mirrors.ustc.edu.cn/gnu/bash/${BASH_TAR}" || \
+        wget -c "https://ftp.gnu.org/gnu/bash/${BASH_TAR}"
+    fi
+    
+    tar -zxvf ${BASH_TAR}
+    cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
+    
+    setup_toolchain
+    
+    echo "配置bash..."
+    
+    ./configure --host="${TARGET_HOST}" \
+        --prefix="${APP_INSTALL_DIR}" \
+        --disable-nls \
+        --enable-multibyte \
+        --enable-static-link \
+        --without-bash-malloc \
+        bash_cv_dev_fd=whacky \
+        bash_cv_job_control_missing=present \
+        bash_cv_sys_siglist=yes \
+        bash_cv_unusable_rtsigs=no \
+        ac_cv_func_mbsnrtowcs=no \
+        ac_cv_func_getpwent=no \
+        ac_cv_func_getgrent=no \
+        ac_cv_func_setgrent=no \
+        ac_cv_func_endpwent=no \
+        ac_cv_func_mblen=no \
+        ac_cv_func_mbrlen=no \
+        ac_cv_func_endgrent=no \
+        ac_cv_func_getpwnam=no \
+        ac_cv_func_getgrnam=no \
+        ac_cv_func_getpwuid=no \
+        ac_cv_func_mempcpy=no \
+        ac_cv_func___fpurge=no \
+        ac_cv_func_strchrnul=no \
+        ac_cv_func_sigsetmask=no \
+        ac_cv_c_bigendian=no \
+        bash_cv_getcwd_malloc=yes \
+        bash_cv_func_sigsetjmp=present
+}
+
+apply_patches_bash() {
+    echo "应用Android补丁..."
+    cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
+    for patch_file in ../patch/bash/*.patch; do
+        patch -p1 < $patch_file
+    done
+}
+
+build_bash() {
+    echo "开始编译..."
+    cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
+    setup_toolchain
+    
+    make -j$(nproc)
+    
+    unsetup_toolchain
+    setup_toolchain
+}
+
+configure_zlib() {
+    cd $BUILD_PROG_WORKING_DIR
+    
+    echo "get src..."
+    ZLIB_FILE="zlib-${ZLIB_VERSION}.tar.gz"
+    
+    if [ ! -f "${ZLIB_FILE}" ]; then
+        wget "https://zlib.net/${ZLIB_FILE}" || \
+        wget "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/${ZLIB_FILE}"
+    fi
+    
+    tar -zxvf ${ZLIB_FILE}
+    
+    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
+    
+    echo "配置zlib..."
+    
+    unsetup_toolchain
+    setup_toolchain
+    
+    LDFLAGS+=" -Wl,--undefined-version"
+    echo ${LDFLAGS}
+    
+    ./configure --prefix="${APP_INSTALL_DIR}" --shared
+}
+
+apply_patches_zlib() {
+    echo "应用Android补丁..."
+    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
+    
+    patch -p1 < ../patch/zlib/1.patch
+}
+
+build_zlib() {
+    echo "编译..."
+    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
+    
+    unsetup_toolchain
+    setup_toolchain
+    
+    LDFLAGS+=" -Wl,--undefined-version"
+    
+    make -j$(nproc)
+    
+    unsetup_toolchain
+    
+    mkdir -p $BUILD_PROG_WORKING_DIR/output
+    cp $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}/libz.so* $OUTPUT_LIB_DIR
+}
+
+copy_and_realign() {
+    echo "复制已编译文件..."
+    cd $BUILD_PROG_WORKING_DIR
+    mkdir -p output
+    cp coreutils-${COREUTILS_VERSION}/src/coreutils output/bin
+    cp bash-${BASH_VERSION}/bash output/bin
+    
+    case ${NEED_CLEAN_ELF} in
+        "true")
+            echo "重新对齐ELF..."
+            cd termux-elf-cleaner
+            ./termux-elf-cleaner ../output/coreutils
+            ./termux-elf-cleaner ../output/bash
+            ;;
+        "false")
+            echo "Skip!"
+            ;;
+    esac
+}
+
+package_output() {
+    echo "打包..."
+    
+    cd $BUILD_PROG_WORKING_DIR
+    cp -r ./output/* ./base
+    cd base
+    zip -r base.zip *
+    cd ..
+    mv base/base.zip output/
+    
+    echo "运行事务后清理..."
+    cd $BUILD_PROG_WORKING_DIR
+    rm -rf termux-elf-cleaner coreutils-* bash-* zlib-*
+    echo "完成"
+}
+
+# ===================== UI 函数 =====================
+
+# 结果显示
+result_display() {
+    echo "========================================================"
+    if [ -f "output/base.zip" ]; then
+        echo -e "\e[1;32m编译完成！\e[0m"
+        echo "输出文件: output/base.zip"
+        echo "目标架构: $TARGET_ARCH"
+        echo "安装目录: $APP_INSTALL_DIR"
+    else
+        echo -e "\e[1;31m编译未完成或出错！请检查日志。\e[0m"
+    fi
+    echo "========================================================"
+    
+    # 安静模式：显示总耗时
+    if [ -n "$IS_QUIET" ] && [ "$IS_QUIET" -eq 1 ]; then
+        local total_end_time=$(date +%s.%N)
+        local total_elapsed_time=$(echo "$total_end_time - $total_start_time" | bc | awk '{printf "%.2f", $0}')
+        echo -e "\n\e[1;32m[OK] 所有步骤完成! 总耗时: ${total_elapsed_time}秒\e[0m"
+    fi
+    
+    sleep 5 #给用户留时间查看
 }
 
 # 完整构建流程
@@ -130,7 +576,6 @@ full_build_process() {
     clear
     
     # 准备进度显示
-    local total_steps=17
     local current_step=0
     
     # 记录总开始时间（安静模式用）
@@ -144,56 +589,10 @@ full_build_process() {
     show_progress 0
     
     # 按顺序执行各步骤
-    ((current_step++))
-    run_step "安装依赖" install_dependencies $current_step $total_steps
-    
-    ((current_step++))
-    run_step "准备目录" install_dir $current_step $total_steps
-    
-    ((current_step++))
-    run_step "克隆termux-elf-cleaner" clone_termux_elf_cleaner $current_step $total_steps
-    
-    ((current_step++))
-    run_step "构建环境安装程序" build_installer $current_step $total_steps
-    
-    ((current_step++))
-    run_step "下载Coreutils源码" download_coreutils $current_step $total_steps
-    
-    ((current_step++))
-    run_step "解压并配置Coreutils" setup_coreutils $current_step $total_steps
-    
-    ((current_step++))
-    run_step "应用Coreutils补丁" apply_patches $current_step $total_steps
-    
-    ((current_step++))
-    run_step "配置Coreutils" configure_coreutils $current_step $total_steps
-    
-    ((current_step++))
-    run_step "编译Coreutils" build_coreutils $current_step $total_steps
-    
-    ((current_step++))
-    run_step "下载和配置 Bash" configure_bash $current_step $total_steps
-    
-    ((current_step++))
-    run_step "应用bash补丁" apply_patches_bash $current_step $total_steps
-    
-    ((current_step++))
-    run_step "编译 Bash" build_bash $current_step $total_steps
-    
-    ((current_step++))
-    run_step "下载和配置 zlib" configure_zlib $current_step $total_steps
-    
-    ((current_step++))
-    run_step "应用zlib补丁" apply_patches_zlib $current_step $total_steps
-    
-    ((current_step++))
-    run_step "编译 zlib" build_zlib $current_step $total_steps
-    
-    ((current_step++))
-    run_step "复制和重新对齐文件" copy_and_realign $current_step $total_steps
-    
-    ((current_step++))
-    run_step "打包输出" package_output $current_step $total_steps
+    for ((cstep=0; cstep<TOTAL_STEPS; cstep++)); do
+        ((current_step++))
+        run_step "${STEP_NAMES[cstep]}" "${STEP_FUNCTIONS[cstep]}" $current_step
+    done
     
     # 显示完成信息
     result_display
@@ -206,50 +605,25 @@ manual_build_steps() {
     echo "======================================"
     
     while true; do
-        step=$(dialog --backtitle "构建步骤" \
+        options=()
+        for ((i=0; i<TOTAL_STEPS; i++)); do
+            options+=("$((i+1))" "${STEP_NAMES[i]}")
+        done
+        options+=("0" "返回主菜单")
+        
+        choice=$(dialog --backtitle "构建步骤" \
                      --title "手动构建" \
                      --menu "选择要执行的步骤：" 17 50 8 \
-                     1 "安装依赖" \
-                     2 "准备目录" \
-                     3 "克隆termux-elf-cleaner" \
-                     4 "构建环境安装程序" \
-                     5 "下载Coreutils源码" \
-                     6 "解压Coreutils" \
-                     7 "应用Coreutils补丁" \
-                     8 "配置Coreutils" \
-                     9 "编译Coreutils" \
-                     10 "下载和配置 Bash" \
-                     11 "应用 Bash 补丁" \
-                     12 "编译 Bash" \
-                     13 "下载和配置 zlib" \
-                     14 "应用 zlib 补丁" \
-                     15 "编译 zlib" \
-                     16 "复制和重新对齐文件" \
-                     17 "打包输出" \
-                     0 "返回主菜单" \
+                     "${options[@]}" \
                      3>&1 1>&2 2>&3 3>&-)
         
-        case $step in
-            1) echo -e "\n\e[1;34m步骤: 安装依赖...\e[0m"; install_dependencies ;;
-            2) echo -e "\n\e[1;34m步骤: 准备目录...\e[0m"; install_dir ;;
-            3) echo -e "\n\e[1;34m步骤: 克隆termux-elf-cleaner...\e[0m"; clone_termux_elf_cleaner ;;
-            4) echo -e "\n\e[1;34m步骤: 构建环境安装程序...\e[0m"; build_installer ;;
-            5) echo -e "\n\e[1;34m步骤: 下载Coreutils源码...\e[0m"; download_coreutils ;;
-            6) echo -e "\n\e[1;34m步骤: 解压Coreutils...\e[0m"; setup_coreutils ;;
-            7) echo -e "\n\e[1;34m步骤: 应用Coreutils补丁...\e[0m"; apply_patches ;;
-            8) echo -e "\n\e[1;34m步骤: 配置Coreutils...\e[0m"; configure_coreutils ;;
-            9) echo -e "\n\e[1;34m步骤: 编译Coreutils...\e[0m"; build_coreutils ;;
-            10) echo -e "\n\e[1;34m步骤: 下载和配置 Bash...\e[0m"; configure_bash ;;
-            11) echo -e "\n\e[1;34m步骤: 应用 Bash 补丁...\e[0m"; apply_patches_bash ;;
-            12) echo -e "\n\e[1;34m步骤: 编译 Bash...\e[0m"; build_bash ;;
-            13) echo -e "\n\e[1;34m步骤: 下载和配置 zlib...\e[0m"; configure_zlib ;;
-            14) echo -e "\n\e[1;34m步骤: 应用 zlib 补丁...\e[0m"; apply_patches_zlib ;;
-            15) echo -e "\n\e[1;34m步骤: 编译 zlib...\e[0m"; build_zlib ;;
-            16) echo -e "\n\e[1;34m步骤: 复制和重新对齐文件...\e[0m"; copy_and_realign ;;
-            17) echo -e "\n\e[1;34m步骤: 打包输出...\e[0m"; package_output ;;
-            0) break ;;
-            *) ;;
-        esac
+        if [[ $choice -eq 0 ]]; then
+            break
+        elif [[ $choice -ge 1 && $choice -le $TOTAL_STEPS ]]; then
+            local step_index=$((choice-1))
+            echo -e "\n\e[1;34m步骤: ${STEP_NAMES[step_index]}...\e[0m"
+            ${STEP_FUNCTIONS[step_index]}
+        fi
     done
 }
 
@@ -360,450 +734,31 @@ clean_output_without_yes() {
     clear
 }
 
-# 结果显示
-result_display() {
-    echo "========================================================"
-    if [ -f "output/base.zip" ]; then
-        echo -e "\e[1;32m编译完成！\e[0m"
-        echo "输出文件: output/base.zip"
-        echo "目标架构: $TARGET_ARCH"
-        echo "安装目录: $APP_INSTALL_DIR"
-    else
-        echo -e "\e[1;31m编译未完成或出错！请检查日志。\e[0m"
-    fi
-    echo "========================================================"
-    
-    # 安静模式：显示总耗时
-    if [ -n "$IS_QUIET" ] && [ "$IS_QUIET" -eq 1 ]; then
-        local total_end_time=$(date +%s.%N)
-        local total_elapsed_time=$(echo "$total_end_time - $total_start_time" | bc | awk '{printf "%.2f", $0}')
-        echo -e "\n\e[1;32m[OK] 所有步骤完成! 总耗时: ${total_elapsed_time}秒\e[0m"
-    fi
-    
-    sleep 5 #给用户留时间查看
-}
-
-# ===================== 构建步骤函数 =====================
-
-install_dependencies() {
-    echo "更新包索引..."
-    apt update -y
-    
-    echo "安装依赖包..."
-    apt install -y git automake autoconf clang binutils make gettext bison gperf texinfo wget cmake zip dialog
-    
-    export BUILD_PROG_WORKING_DIR=$PWD
-}
-
-clone_termux_elf_cleaner() {
-    case ${NEED_CLEAN_ELF} in
-        "true")
-            echo "克隆termux-elf-cleaner仓库..."
-            git clone https://github.com/termux/termux-elf-cleaner.git
-            echo "应用补丁..."
-            cd termux-elf-cleaner
-            patch -p1 < ../patch/RealignFile/fixcleaner.patch
-            echo "编译..."
-            cmake .
-            make
-            ;;
-        "false")
-            echo "Skip!"
-    esac
-    
-    cd $BUILD_PROG_WORKING_DIR
-}
-
-build_installer() {
-    echo "构建环境安装程序..."
-    cd installer/jni
-    ${NDK_BUILD}
-    
-    case "${TARGET_ARCH}" in
-        aarch64)
-            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/arm64-v8a/installer"
-            ;;
-        arm)
-            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/armeabi-v7a/installer"
-            ;;
-        x86)
-            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/x86/installer"
-            ;;
-        x86_64)
-            export INSTALLER_PATH="${BUILD_PROG_WORKING_DIR}/installer/libs/x86_64/installer"
-            ;;
-    esac
-    
-    cp $INSTALLER_PATH $BUILD_PROG_WORKING_DIR/base/home/.term
-    unset INSTALLER_PATH
-    cd $BUILD_PROG_WORKING_DIR
-}
-
-download_coreutils() {
-    echo "下载coreutils源码..."
-    COREUTILS_TAR="coreutils-${COREUTILS_VERSION}.tar.xz"
-    
-    if [ ! -f "${COREUTILS_TAR}" ]; then
-        wget -c "https://mirrors.ustc.edu.cn/gnu/coreutils/${COREUTILS_TAR}" || \
-        wget -c "https://ftp.gnu.org/gnu/coreutils/${COREUTILS_TAR}"
-    fi
-}
-
-configure_bash() {
-    cd $BUILD_PROG_WORKING_DIR
-    
-    echo "下载bash源码..."
-    BASH_TAR="bash-${BASH_VERSION}.tar.gz"
-    
-    if [ ! -f "${BASH_TAR}" ]; then
-        wget -c "https://mirrors.ustc.edu.cn/gnu/bash/${BASH_TAR}" || \
-        wget -c "https://ftp.gnu.org/gnu/bash/${BASH_TAR}"
-    fi
-    
-    tar -zxvf ${BASH_TAR}
-    cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
-    
-    setup_toolchain
-    
-    echo "配置bash..."
-    
-    ./configure --host="${TARGET_HOST}" \
-        --prefix="${APP_INSTALL_DIR}" \
-        --disable-nls \
-        --enable-multibyte \
-        --enable-static-link \
-        --without-bash-malloc \
-        bash_cv_dev_fd=whacky \
-        bash_cv_job_control_missing=present \
-        bash_cv_sys_siglist=yes \
-        bash_cv_unusable_rtsigs=no \
-        ac_cv_func_mbsnrtowcs=no \
-        ac_cv_func_getpwent=no \
-        ac_cv_func_getgrent=no \
-        ac_cv_func_setgrent=no \
-        ac_cv_func_endpwent=no \
-        ac_cv_func_mblen=no \
-        ac_cv_func_mbrlen=no \
-        ac_cv_func_endgrent=no \
-        ac_cv_func_getpwnam=no \
-        ac_cv_func_getgrnam=no \
-        ac_cv_func_getpwuid=no \
-        ac_cv_func_mempcpy=no \
-        ac_cv_func___fpurge=no \
-        ac_cv_func_strchrnul=no \
-        ac_cv_func_sigsetmask=no \
-        ac_cv_c_bigendian=no \
-        bash_cv_getcwd_malloc=yes \
-        bash_cv_func_sigsetjmp=present
-}
-
-configure_zlib() {
-    cd $BUILD_PROG_WORKING_DIR
-    
-    echo "get src..."
-    ZLIB_FILE="zlib-${ZLIB_VERSION}.tar.gz"
-    
-    if [ ! -f "${ZLIB_FILE}" ]; then
-        wget "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/${ZLIB_FILE}"
-    fi
-    
-    tar -zxvf ${ZLIB_FILE}
-    
-    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
-    
-    echo "配置zlib..."
-    
-    unsetup_toolchain
-    setup_toolchain
-    
-    LDFLAGS+=" -Wl,--undefined-version"
-    echo ${LDFLAGS}
-    
-    ./configure --prefix="${APP_INSTALL_DIR}" --shared
-}
-
-apply_patches_zlib() {
-    echo "应用Android补丁..."
-    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
-    
-    patch -p1 < ../patch/zlib/1.patch
-}
-
-build_zlib() {
-    echo "编译..."
-    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
-    
-    unsetup_toolchain
-    setup_toolchain
-    
-    LDFLAGS+=" -Wl,--undefined-version"
-    
-    make -j$(nproc)
-    
-    unsetup_toolchain
-    
-    mkdir -p $BUILD_PROG_WORKING_DIR/output
-    cp $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}/libz.so* $OUTPUT_LIB_DIR
-}
-
-setup_coreutils() {
-    echo "解压源码..."
-    tar xf "coreutils-${COREUTILS_VERSION}.tar.xz"
-    cd "coreutils-${COREUTILS_VERSION}"
-    
-    setup_toolchain
-}
-
-apply_patches() {
-    echo "应用Android补丁..."
-    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
-    patch -p1 < ../patch/coreutils/1.patch
-    patch -p1 < ../patch/coreutils/2.patch
-    patch -p1 < ../patch/coreutils/3.patch
-    #patch -p1 < ../patch/coreutils/4.patch
-    patch -p1 < ../patch/coreutils/5.patch
-    patch -p1 < ../patch/coreutils/6.patch
-    patch -p1 < ../patch/coreutils/7.patch
-    patch -p1 < ../patch/coreutils/8.patch
-    patch -p1 < ../patch/coreutils/9.patch
-}
-
-apply_patches_bash() {
-    echo "应用Android补丁..."
-    cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
-    patch -p1 < ../patch/bash/1.patch
-    patch -p1 < ../patch/bash/2.patch
-    patch -p1 < ../patch/bash/3.patch
-    patch -p1 < ../patch/bash/4.patch
-    patch -p1 < ../patch/bash/5.patch
-    patch -p1 < ../patch/bash/6.patch
-    patch -p1 < ../patch/bash/7.patch
-    patch -p1 < ../patch/bash/8.patch
-    patch -p1 < ../patch/bash/9.patch
-    patch -p1 < ../patch/bash/10.patch
-    patch -p1 < ../patch/bash/11.patch
-    patch -p1 < ../patch/bash/12.patch
-    patch -p1 < ../patch/bash/13.patch
-    patch -p1 < ../patch/bash/15.patch
-}
-
-configure_coreutils() {
-    echo "配置coreutils..."
-    
-    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
-    
-    ./configure \
-        --host="${TARGET_HOST}" \
-        --prefix="${APP_INSTALL_DIR}" \
-        --enable-single-binary=symlinks \
-        --disable-xattr \
-        --with-gnu-ld \
-        --disable-year2038 \
-        --enable-no-install-program=pinky,df,users,who,uptime,stdbuf \
-        --with-packager=SuperDevelopmentEnvironment \
-        --enable-shared \
-        ac_cv_func_malloc_0_nonnull=yes \
-        ac_cv_func_realloc_0_nonnull=yes \
-        gl_cv_header_working_stdint_h=yes \
-        gl_cv_host_operating_system=Android \
-        ac_cv_func_getpass=yes \
-        gl_cv_func_isnanl_works=yes \
-        ac_cv_func_getpwent=no \
-        ac_cv_func_getgrent=no \
-        ac_cv_func_endpwent=no \
-        ac_cv_func_endgrent=no \
-        ac_cv_func_getpwnam=no \
-        ac_cv_func_getgrnam=no \
-        ac_cv_func_getpwuid=no \
-        ac_cv_func_sigsetmask=no \
-        ac_cv_func_statx=no \
-        ac_cv_func_nl_langinfo=no \
-        ac_cv_func_syncfs=no \
-        ac_cv_func_sethostname=no \
-        ac_cv_func_mbrlen=no \
-        ac_cv_c_bigendian=no \
-        ac_cv_func_getnameinfo=no \
-        ac_cv_func_tzfree=yes \
-        ac_cv_func_tzalloc=yes
-}
-
-build_coreutils() {
-    echo "开始编译..."
-    setup_toolchain
-    
-    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
-    make -j$(nproc)
-}
-
-build_bash() {
-    echo "开始编译..."
-    cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
-    setup_toolchain
-    
-    # export CFLAGS="${CFLAGS} -DHANDLE_MULTIBYTE"
-    # echo ${CFLAGS}
-    
-    make -j$(nproc)
-    
-    unsetup_toolchain
-    setup_toolchain
-}
-
-copy_and_realign() {
-    echo "复制已编译文件..."
-    cd $BUILD_PROG_WORKING_DIR
-    mkdir -p output
-    cp coreutils-${COREUTILS_VERSION}/src/coreutils output/bin
-    cp bash-${BASH_VERSION}/bash output/bin
-    
-    case ${NEED_CLEAN_ELF} in
-        "true")
-            echo "重新对齐ELF..."
-            cd termux-elf-cleaner
-            ./termux-elf-cleaner ../output/coreutils
-            ./termux-elf-cleaner ../output/bash
-            ;;
-        "false")
-            echo "Skip!"
-            ;;
-    esac
-}
-
-package_output() {
-    echo "打包..."
-    
-    cd $BUILD_PROG_WORKING_DIR
-    cp -r ./output/* ./base
-    cd base
-    zip -r base.zip *
-    cd ..
-    mv base/base.zip output/
-    
-    echo "运行事务后清理..."
-    cd $BUILD_PROG_WORKING_DIR
-    rm -rf termux-elf-cleaner coreutils-* bash-* zlib-*
-    echo "完成"
-}
-
-# 设置工具链
-setup_toolchain() {
-    TOOLCHAIN_ROOT="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64"
-    case "${TARGET_ARCH}" in
-        aarch64)
-            export TARGET_HOST="aarch64-linux-android"
-            export TOOL_PREFIX="${TARGET_HOST}${ANDROID_API}-"
-            ;;
-        arm)
-            export TARGET_HOST="armv7a-linux-androideabi"
-            export TOOL_PREFIX="${TARGET_HOST}${ANDROID_API}-"
-            ;;
-        x86)
-            export TARGET_HOST="i686-linux-android"
-            export TOOL_PREFIX="${TARGET_HOST}${ANDROID_API}-"
-            ;;
-        x86_64)
-            export TARGET_HOST="x86_64-linux-android"
-            export TOOL_PREFIX="${TARGET_HOST}${ANDROID_API}-"
-            ;;
-    esac
-
-    export CC="${TOOLCHAIN_ROOT}/bin/${TOOL_PREFIX}clang"
-    export CXX="${TOOLCHAIN_ROOT}/bin/${TOOL_PREFIX}clang++"
-    export AR="${TOOLCHAIN_ROOT}/bin/llvm-ar"
-    export OBJCOPY="${TOOLCHAIN_ROOT}/bin/llvm-objcopy"
-    export OBJDUMP="${TOOLCHAIN_ROOT}/bin/llvm-objdump"
-    export RANLIB="${TOOLCHAIN_ROOT}/bin/llvm-ranlib"
-    export STRIP="${TOOLCHAIN_ROOT}/bin/llvm-strip"
-    export LD="${TOOLCHAIN_ROOT}/bin/ld.lld"
-    
-    export CFLAGS="-fPIE -fPIC -Os \
-    -DNO_MKTIME_Z -D__USE_ANDROID_STDIO -DANDROID_USER_FUNCTIONS \
-    -DHAVE___FPURGE=0 -DHANDLE_MULTIBYTE -Wno-everything"
-    export LDFLAGS="-fPIE -pie"
-    
-    export LDSHARED="${CC} -fPIE -pie -shared"
-    
-    if [ "$TARGET_ARCH" = "aarch64" ]; then
-        CFLAGS+=" -march=armv8-a+crc"
-        CXXFLAGS+=" -march=armv8-a+crc"
-    fi
-    
-    # 设置环境变量
-    export ac_cv_func_getpwent=no
-    export ac_cv_func_endpwent=no
-    export ac_cv_func_getpwnam=no
-    export ac_cv_func_getpwuid=no
-    export ac_cv_func_sigsetmask=no
-    export ac_cv_c_bigendian=no
-    export ac_cv_func_setgrent=no
-    export ac_cv_func_getgrent=no
-    export ac_cv_func_endgrent=no
-    
-}
-
-unsetup_toolchain() {
-    unset CC
-    unset CXX
-    unset AR
-    unset OBJCOPY
-    unset OBJDUMP
-    unset RANLIB
-    unset STRIP
-    unset LD
-    unset CFLAGS
-    unset CXXFLAGS
-    unset LDFLAGS
-    unset LDSHARED
-}
-
-install_dir() {
-    mkdir -p $BUILD_PROG_WORKING_DIR/output
-    mkdir -p $BUILD_PROG_WORKING_DIR/output/lib
-    mkdir -p $BUILD_PROG_WORKING_DIR/output/bin
-    
-    echo "准备完成"
-}
-
-# 旋转动画函数（安静模式使用）
-spinner() {
-    local pid=$1
-    local delay=0.05
-    local spinstr='/-\|'
-    local i=0
-    
-    echo
-    
-    while ps -p $pid > /dev/null; do
-        local temp=${spinstr:i++%${#spinstr}:1}
-        printf "\rPlease wait... $temp ($i)"
-        sleep $delay
+# 主菜单
+main_menu() {
+    while true; do
+        choice=$(dialog --backtitle "Super Development Environment 编译程序 (v1.0.0)" \
+                        --title "主菜单" \
+                        --menu "请选择操作：" 15 50 5 \
+                        1 "完整构建流程" \
+                        2 "手动构建步骤" \
+                        3 "配置设置" \
+                        4 "清理输出" \
+                        0 "退出" \
+                        3>&1 1>&2 2>&3 3>&-)
+        
+        case $choice in
+            1) full_build_process ;;
+            2) manual_build_steps ;;
+            3) configure_settings ;;
+            4) clean_output ;;
+            0) clear && exit 0 ;;
+            *) return ;;
+        esac
     done
-    
-    printf "\rPlease wait... "
 }
 
 # ===================== 初始化和主程序 =====================
-
-# 默认配置
-export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
-export NDK_BUILD="${ANDROID_NDK}/ndk-build"
-export APP_INSTALL_DIR="/data/data/com.manager.ssb/files/usr"
-export TARGET_ARCH="aarch64"
-export ANDROID_API=21
-export BUILD_PROG_WORKING_DIR=$PWD
-export OUTPUT_LIB_DIR=$BUILD_PROG_WORKING_DIR/output/lib
-export CLEAN_TOOLS=$PWD/termux-elf-cleaner/termux-elf-cleaner
-export COREUTILS_VERSION="9.7"
-export BASH_VERSION="5.2.37"
-export ZLIB_VERSION="1.3.1"
-export PYTHON_VERSION="3.12.11"
-export COMP_PYTHON="false"
-export ICONV_VERSION="1.18"
-export NEED_CLEAN_ELF="false"
-export PKG_MGR="spm"
-export IS_QUIET=0
-export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
-export WRITE_LOG=1
 
 # 检查并安装dialog
 if ! command -v dialog &>/dev/null; then
