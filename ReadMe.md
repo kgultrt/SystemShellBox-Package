@@ -45,6 +45,6 @@ coreutils 9.7
 
 bash 5.2.37
 
-zlib 1.3.1 (WIP)
+zlib 1.3.1
 
 spm 1.0.0 (WIP)

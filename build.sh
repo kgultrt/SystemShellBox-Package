@@ -1,8 +1,6 @@
 #!/usr/bin/bash
 
-# set -e
-
-# 带进度条的显示函数（统一实现）
+# 带进度条的显示函数
 show_progress() {
     local width=50
     local percent=$1
@@ -26,6 +24,7 @@ show_progress() {
     echo -ne "\r[${progress_bar}] ${percent}%"
     tput rc  # 恢复光标位置
 }
+
 
 # 更新进度并显示
 update_progress() {
@@ -131,14 +130,14 @@ full_build_process() {
     clear
     
     # 准备进度显示
-    local total_steps=16
+    local total_steps=17
     local current_step=0
     
     # 记录总开始时间（安静模式用）
     export total_start_time=$(date +%s.%N)
     trap 'echo -e "\rPlease wait... \e[1;31m[FAILED]\e[0m 用户取消操作!" && echo && exit' SIGINT SIGTERM
     
-    echo -e "\n\n"  # 为进度条留出空间
+    echo -e "\n"  # 为进度条留出空间
     
     # 显示初始进度条
     echo -e "\n\e[1;32m编译进度:\e[0m"
@@ -147,6 +146,9 @@ full_build_process() {
     # 按顺序执行各步骤
     ((current_step++))
     run_step "安装依赖" install_dependencies $current_step $total_steps
+    
+    ((current_step++))
+    run_step "准备目录" install_dir $current_step $total_steps
     
     ((current_step++))
     run_step "克隆termux-elf-cleaner" clone_termux_elf_cleaner $current_step $total_steps
@@ -208,41 +210,43 @@ manual_build_steps() {
                      --title "手动构建" \
                      --menu "选择要执行的步骤：" 17 50 8 \
                      1 "安装依赖" \
-                     2 "克隆termux-elf-cleaner" \
-                     3 "构建环境安装程序" \
-                     4 "下载Coreutils源码" \
-                     5 "解压Coreutils" \
-                     6 "应用Coreutils补丁" \
-                     7 "配置Coreutils" \
-                     8 "编译Coreutils" \
-                     9 "下载和配置 Bash" \
-                     10 "应用 Bash 补丁" \
-                     11 "编译 Bash" \
-                     12 "下载和配置 zlib" \
-                     13 "应用 zlib 补丁" \
-                     14 "编译 zlib" \
-                     15 "复制和重新对齐文件" \
-                     16 "打包输出" \
+                     2 "准备目录" \
+                     3 "克隆termux-elf-cleaner" \
+                     4 "构建环境安装程序" \
+                     5 "下载Coreutils源码" \
+                     6 "解压Coreutils" \
+                     7 "应用Coreutils补丁" \
+                     8 "配置Coreutils" \
+                     9 "编译Coreutils" \
+                     10 "下载和配置 Bash" \
+                     11 "应用 Bash 补丁" \
+                     12 "编译 Bash" \
+                     13 "下载和配置 zlib" \
+                     14 "应用 zlib 补丁" \
+                     15 "编译 zlib" \
+                     16 "复制和重新对齐文件" \
+                     17 "打包输出" \
                      0 "返回主菜单" \
                      3>&1 1>&2 2>&3 3>&-)
         
         case $step in
             1) echo -e "\n\e[1;34m步骤: 安装依赖...\e[0m"; install_dependencies ;;
-            2) echo -e "\n\e[1;34m步骤: 克隆termux-elf-cleaner...\e[0m"; clone_termux_elf_cleaner ;;
-            3) echo -e "\n\e[1;34m步骤: 构建环境安装程序...\e[0m"; build_installer ;;
-            4) echo -e "\n\e[1;34m步骤: 下载Coreutils源码...\e[0m"; download_coreutils ;;
-            5) echo -e "\n\e[1;34m步骤: 解压Coreutils...\e[0m"; setup_coreutils ;;
-            6) echo -e "\n\e[1;34m步骤: 应用Coreutils补丁...\e[0m"; apply_patches ;;
-            7) echo -e "\n\e[1;34m步骤: 配置Coreutils...\e[0m"; configure_coreutils ;;
-            8) echo -e "\n\e[1;34m步骤: 编译Coreutils...\e[0m"; build_coreutils ;;
-            9) echo -e "\n\e[1;34m步骤: 下载和配置 Bash...\e[0m"; configure_bash ;;
-            10) echo -e "\n\e[1;34m步骤: 应用 Bash 补丁...\e[0m"; apply_patches_bash ;;
-            11) echo -e "\n\e[1;34m步骤: 编译 Bash...\e[0m"; build_bash ;;
-            12) echo -e "\n\e[1;34m步骤: 下载和配置 zlib...\e[0m"; configure_zlib ;;
-            13) echo -e "\n\e[1;34m步骤: 应用 zlib 补丁...\e[0m"; apply_patches_zlib ;;
-            14) echo -e "\n\e[1;34m步骤: 编译 zlib...\e[0m"; build_zlib ;;
-            15) echo -e "\n\e[1;34m步骤: 复制和重新对齐文件...\e[0m"; copy_and_realign ;;
-            16) echo -e "\n\e[1;34m步骤: 打包输出...\e[0m"; package_output ;;
+            2) echo -e "\n\e[1;34m步骤: 准备目录...\e[0m"; install_dir ;;
+            3) echo -e "\n\e[1;34m步骤: 克隆termux-elf-cleaner...\e[0m"; clone_termux_elf_cleaner ;;
+            4) echo -e "\n\e[1;34m步骤: 构建环境安装程序...\e[0m"; build_installer ;;
+            5) echo -e "\n\e[1;34m步骤: 下载Coreutils源码...\e[0m"; download_coreutils ;;
+            6) echo -e "\n\e[1;34m步骤: 解压Coreutils...\e[0m"; setup_coreutils ;;
+            7) echo -e "\n\e[1;34m步骤: 应用Coreutils补丁...\e[0m"; apply_patches ;;
+            8) echo -e "\n\e[1;34m步骤: 配置Coreutils...\e[0m"; configure_coreutils ;;
+            9) echo -e "\n\e[1;34m步骤: 编译Coreutils...\e[0m"; build_coreutils ;;
+            10) echo -e "\n\e[1;34m步骤: 下载和配置 Bash...\e[0m"; configure_bash ;;
+            11) echo -e "\n\e[1;34m步骤: 应用 Bash 补丁...\e[0m"; apply_patches_bash ;;
+            12) echo -e "\n\e[1;34m步骤: 编译 Bash...\e[0m"; build_bash ;;
+            13) echo -e "\n\e[1;34m步骤: 下载和配置 zlib...\e[0m"; configure_zlib ;;
+            14) echo -e "\n\e[1;34m步骤: 应用 zlib 补丁...\e[0m"; apply_patches_zlib ;;
+            15) echo -e "\n\e[1;34m步骤: 编译 zlib...\e[0m"; build_zlib ;;
+            16) echo -e "\n\e[1;34m步骤: 复制和重新对齐文件...\e[0m"; copy_and_realign ;;
+            17) echo -e "\n\e[1;34m步骤: 打包输出...\e[0m"; package_output ;;
             0) break ;;
             *) ;;
         esac
@@ -337,7 +341,7 @@ clean_output() {
     if dialog --yesno "确定要清理所有输出文件吗?" 7 50; then
         echo "清理输出文件..."
         
-        rm -rf termux-elf-cleaner coreutils-* output bash-*
+        rm -rf termux-elf-cleaner coreutils-* output bash-* zlib-*
         cd installer
         rm -rf libs obj
         cd $BUILD_PROG_WORKING_DIR
@@ -493,6 +497,55 @@ configure_bash() {
         bash_cv_func_sigsetjmp=present
 }
 
+configure_zlib() {
+    cd $BUILD_PROG_WORKING_DIR
+    
+    echo "get src..."
+    ZLIB_FILE="zlib-${ZLIB_VERSION}.tar.gz"
+    
+    if [ ! -f "${ZLIB_FILE}" ]; then
+        wget "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/${ZLIB_FILE}"
+    fi
+    
+    tar -zxvf ${ZLIB_FILE}
+    
+    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
+    
+    echo "配置zlib..."
+    
+    unsetup_toolchain
+    setup_toolchain
+    
+    LDFLAGS+=" -Wl,--undefined-version"
+    echo ${LDFLAGS}
+    
+    ./configure --prefix="${APP_INSTALL_DIR}" --shared
+}
+
+apply_patches_zlib() {
+    echo "应用Android补丁..."
+    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
+    
+    patch -p1 < ../patch/zlib/1.patch
+}
+
+build_zlib() {
+    echo "编译..."
+    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
+    
+    unsetup_toolchain
+    setup_toolchain
+    
+    LDFLAGS+=" -Wl,--undefined-version"
+    
+    make -j$(nproc)
+    
+    unsetup_toolchain
+    
+    mkdir -p $BUILD_PROG_WORKING_DIR/output
+    cp $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}/libz.so* $OUTPUT_LIB_DIR
+}
+
 setup_coreutils() {
     echo "解压源码..."
     tar xf "coreutils-${COREUTILS_VERSION}.tar.xz"
@@ -600,8 +653,8 @@ copy_and_realign() {
     echo "复制已编译文件..."
     cd $BUILD_PROG_WORKING_DIR
     mkdir -p output
-    cp coreutils-${COREUTILS_VERSION}/src/coreutils output/
-    cp bash-${BASH_VERSION}/bash output/
+    cp coreutils-${COREUTILS_VERSION}/src/coreutils output/bin
+    cp bash-${BASH_VERSION}/bash output/bin
     
     case ${NEED_CLEAN_ELF} in
         "true")
@@ -618,13 +671,18 @@ copy_and_realign() {
 
 package_output() {
     echo "打包..."
+    
     cd $BUILD_PROG_WORKING_DIR
-    cp ./output/* ./base/bin
+    cp -r ./output/* ./base
     cd base
     zip -r base.zip *
     cd ..
     mv base/base.zip output/
-    rm -rf base/bin/coreutils
+    
+    echo "运行事务后清理..."
+    cd $BUILD_PROG_WORKING_DIR
+    rm -rf termux-elf-cleaner coreutils-* bash-* zlib-*
+    echo "完成"
 }
 
 # 设置工具链
@@ -663,6 +721,13 @@ setup_toolchain() {
     -DHAVE___FPURGE=0 -DHANDLE_MULTIBYTE -Wno-everything"
     export LDFLAGS="-fPIE -pie"
     
+    export LDSHARED="${CC} -fPIE -pie -shared"
+    
+    if [ "$TARGET_ARCH" = "aarch64" ]; then
+        CFLAGS+=" -march=armv8-a+crc"
+        CXXFLAGS+=" -march=armv8-a+crc"
+    fi
+    
     # 设置环境变量
     export ac_cv_func_getpwent=no
     export ac_cv_func_endpwent=no
@@ -680,17 +745,29 @@ unsetup_toolchain() {
     unset CC
     unset CXX
     unset AR
+    unset OBJCOPY
+    unset OBJDUMP
     unset RANLIB
     unset STRIP
     unset LD
     unset CFLAGS
+    unset CXXFLAGS
     unset LDFLAGS
+    unset LDSHARED
+}
+
+install_dir() {
+    mkdir -p $BUILD_PROG_WORKING_DIR/output
+    mkdir -p $BUILD_PROG_WORKING_DIR/output/lib
+    mkdir -p $BUILD_PROG_WORKING_DIR/output/bin
+    
+    echo "准备完成"
 }
 
 # 旋转动画函数（安静模式使用）
 spinner() {
     local pid=$1
-    local delay=0.1
+    local delay=0.05
     local spinstr='/-\|'
     local i=0
     
@@ -698,7 +775,7 @@ spinner() {
     
     while ps -p $pid > /dev/null; do
         local temp=${spinstr:i++%${#spinstr}:1}
-        printf "\rPlease wait... $temp"
+        printf "\rPlease wait... $temp ($i)"
         sleep $delay
     done
     
@@ -714,6 +791,7 @@ export APP_INSTALL_DIR="/data/data/com.manager.ssb/files/usr"
 export TARGET_ARCH="aarch64"
 export ANDROID_API=21
 export BUILD_PROG_WORKING_DIR=$PWD
+export OUTPUT_LIB_DIR=$BUILD_PROG_WORKING_DIR/output/lib
 export CLEAN_TOOLS=$PWD/termux-elf-cleaner/termux-elf-cleaner
 export COREUTILS_VERSION="9.7"
 export BASH_VERSION="5.2.37"
@@ -723,7 +801,7 @@ export COMP_PYTHON="false"
 export ICONV_VERSION="1.18"
 export NEED_CLEAN_ELF="false"
 export PKG_MGR="spm"
-export IS_QUIET=1
+export IS_QUIET=0
 export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
 export WRITE_LOG=1
 
