@@ -1,5 +1,7 @@
 #!/usr/bin/bash
 
+export BUILD_PROG_VERSION="v1.0.1"
+
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
 export NDK_BUILD="${ANDROID_NDK}/ndk-build"
@@ -62,8 +64,42 @@ declare -a STEP_FUNCTIONS=(
     "package_output"
 )
 
+CONFIG_FILE="config.conf"
+
+# 配置项定义：变量=描述
+declare -A CONFIG_ITEMS=(
+    [ANDROID_NDK]="Android NDK路径"
+    [APP_INSTALL_DIR]="安装目录"
+    [TARGET_ARCH]="目标架构"
+    [ANDROID_API]="Android API级别"
+    [COREUTILS_VERSION]="CoreUtils 版本"
+    [BASH_VERSION]="Bash 版本"
+    [COMP_PYTHON]="是否编译 Python"
+    [NEED_CLEAN_ELF]="是否对齐 ELF 头"
+    [ZLIB_VERSION]="zlib 版本"
+    [IS_QUIET]="安静输出"
+    [WRITE_LOG]="安静模式下保存日志"
+)
+
+# 类型定义：变量=输入方式
+declare -A CONFIG_TYPES=(
+    [ANDROID_NDK]="path"
+    [APP_INSTALL_DIR]="path"
+    [TARGET_ARCH]="arch"
+    [ANDROID_API]="number"
+    [COREUTILS_VERSION]="version"
+    [BASH_VERSION]="version"
+    [COMP_PYTHON]="bool"
+    [NEED_CLEAN_ELF]="bool"
+    [ZLIB_VERSION]="version"
+    [IS_QUIET]="boolnum"
+    [WRITE_LOG]="boolnum"
+)
+
+
+
 TOTAL_STEPS=${#STEP_NAMES[@]}
-echo ${TOTAL_STEPS}
+echo "TOTAL_STEPS: ${TOTAL_STEPS}"
 
 # ===================== 通用功能函数 =====================
 
@@ -628,87 +664,83 @@ manual_build_steps() {
 }
 
 # 配置设置
+# ==================== 保存/加载配置 ====================
+
+# 保存配置到文件
+save_config() {
+    > "$CONFIG_FILE"
+    for key in "${!CONFIG_ITEMS[@]}"; do
+        echo "$key=\"${!key}\"" >> "$CONFIG_FILE"
+    done
+    dialog --msgbox "配置已保存到 $CONFIG_FILE" 7 50
+}
+
+# 从文件加载配置
+load_config() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        source "$CONFIG_FILE"
+    else
+        echo "NO CONFIG!"
+    fi
+}
+
+# ==================== 编辑配置 ====================
+
+edit_config() {
+    local var="$1"
+    local type="${CONFIG_TYPES[$var]}"
+    local current="${!var}"
+    local new_value
+
+    case "$type" in
+        path|version|number)
+            new_value=$(dialog --inputbox "输入 ${CONFIG_ITEMS[$var]}:" 8 50 "$current" 3>&1 1>&2 2>&3 3>&-)
+            ;;
+        bool)
+            new_value=$(dialog --menu "选择 ${CONFIG_ITEMS[$var]}:" 12 30 5 \
+                true "启用" \
+                false "禁用" 3>&1 1>&2 2>&3 3>&-)
+            ;;
+        boolnum)
+            new_value=$(dialog --menu "选择 ${CONFIG_ITEMS[$var]}:" 12 50 5 \
+                1 "启用" \
+                0 "禁用" 3>&1 1>&2 2>&3 3>&-)
+            ;;
+        arch)
+            new_value=$(dialog --menu "选择目标架构:" 12 30 5 \
+                aarch64 "ARM64 (推荐)" \
+                arm "ARM32" \
+                x86 "x86" \
+                x86_64 "x86_64" 3>&1 1>&2 2>&3 3>&-)
+            ;;
+    esac
+
+    [ -n "$new_value" ] && export "$var=$new_value"
+}
+
 configure_settings() {
     while true; do
-        config_choice=$(dialog --backtitle "配置设置" \
-                       --title "配置选项" \
-                       --menu "选择要修改的配置：" 15 50 6 \
-                       1 "Android NDK路径 [$ANDROID_NDK]" \
-                       2 "安装目录 [$APP_INSTALL_DIR]" \
-                       3 "目标架构 [$TARGET_ARCH]" \
-                       4 "Android API级别 [$ANDROID_API]" \
-                       5 "CoreUtils 版本 [$COREUTILS_VERSION]" \
-                       6 "Bash 版本 [$BASH_VERSION]" \
-                       7 "是否编译 Python [$COMP_PYTHON]" \
-                       8 "需要对齐 ELF 头 [$NEED_CLEAN_ELF]" \
-                       9 "zlib 版本 [$ZLIB_VERSION]" \
-                       10 "安静输出 [$IS_QUIET]" \
-                       11 "在安静输出里保存日志 [$WRITE_LOG]" \
-                       0 "返回" \
-                       3>&1 1>&2 2>&3 3>&-)
-        
-        case $config_choice in
-            1) 
-                new_ndk=$(dialog --inputbox "输入Android NDK路径:" 8 50 "$ANDROID_NDK" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_ndk" ] && export ANDROID_NDK="$new_ndk" && export NDK_BUILD="${ANDROID_NDK}/ndk-build"
-                ;;
-            2)
-                new_dir=$(dialog --inputbox "输入安装目录:" 8 50 "$APP_INSTALL_DIR" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_dir" ] && export APP_INSTALL_DIR="$new_dir"
-                ;;
-            3)
-                new_arch=$(dialog --menu "选择目标架构:" 12 30 5 \
-                    aarch64 "ARM64 (推荐)" \
-                    arm "ARM32" \
-                    x86 "x86" \
-                    x86_64 "x86_64" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_arch" ] && export TARGET_ARCH="$new_arch"
-                ;;
-            4)
-                new_api=$(dialog --inputbox "输入Android API级别:" 8 50 "$ANDROID_API" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_api" ] && export ANDROID_API="$new_api"
-                ;;
-            5)
-                new_api2=$(dialog --inputbox "输入新的版本号 (不建议更改):" 8 50 "$COREUTILS_VERSION" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_api2" ] && export COREUTILS_VERSION="$new_api2"
-                ;;
-            6)
-                new_api3=$(dialog --inputbox "输入新的版本号 (不建议更改):" 8 50 "$BASH_VERSION" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_api3" ] && export BASH_VERSION="$new_api3"
-                ;;
-            7)
-                new_choose=$(dialog --menu "选择:" 12 30 5 \
-                    true "启用" \
-                    false "禁用 (推荐)" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_choose" ] && export COMP_PYTHON="$new_choose"
-                ;;
-            8)
-                new_choose=$(dialog --menu "选择:" 12 30 5 \
-                    true "启用" \
-                    false "禁用" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_choose" ] && export NEED_CLEAN_ELF="$new_choose"
-                ;;
-            9)
-                new_api3=$(dialog --inputbox "输入新的版本号 (不建议更改):" 8 50 "$ZLIB_VERSION" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_api3" ] && export ZLIB_VERSION="$new_api3"
-                ;;
-            10)
-                new_choose=$(dialog --menu "选择:" 12 85 5 \
-                    1 "启用 (不推荐，容易出一些匪夷所思的Bug)" \
-                    0 "禁用" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_choose" ] && export IS_QUIET="$new_choose"
-                ;;
-            11)
-                new_choose=$(dialog --menu "选择:" 12 30 5 \
-                    1 "启用" \
-                    0 "禁用" 3>&1 1>&2 2>&3 3>&-)
-                [ -n "$new_choose" ] && export WRITE_LOG="$new_choose"
-                ;;
-            0) break ;;
-            *) ;;
+        menu_items=()
+        i=1
+        for key in "${!CONFIG_ITEMS[@]}"; do
+            value="${!key}"
+            menu_items+=("$i" "${CONFIG_ITEMS[$key]} [$value]")
+            keys[$i]="$key"
+            ((i++))
+        done
+        menu_items+=("S" "保存配置")
+        menu_items+=("0" "返回")
+
+        choice=$(dialog --menu "选择要修改的配置：" 20 70 12 "${menu_items[@]}" 3>&1 1>&2 2>&3 3>&-)
+
+        case "$choice" in
+            0|"") break ;;
+            S) save_config ;;
+            *) edit_config "${keys[$choice]}" ;;
         esac
     done
 }
+
 
 # 清理输出
 clean_output() {
@@ -737,7 +769,7 @@ clean_output_without_yes() {
 # 主菜单
 main_menu() {
     while true; do
-        choice=$(dialog --backtitle "Super Development Environment 编译程序 (v1.0.0)" \
+        choice=$(dialog --backtitle "Super Development Environment 编译程序 (${BUILD_PROG_VERSION})" \
                         --title "主菜单" \
                         --menu "请选择操作：" 15 50 5 \
                         1 "完整构建流程" \
@@ -772,4 +804,5 @@ if ! command -v bc &>/dev/null; then
 fi
 
 # 启动主菜单
+load_config
 main_menu
