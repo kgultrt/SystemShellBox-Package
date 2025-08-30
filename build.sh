@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.1"
+export BUILD_PROG_VERSION="v1.0.2"
 
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
@@ -22,6 +22,8 @@ export PKG_MGR="spm"
 export IS_QUIET=0
 export WRITE_LOG=1
 export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
+export CONFIG_FILE="config.conf"
+export CONFIG_PKG_FILE="config_pkg.conf"
 
 # 步骤定义
 declare -a STEP_NAMES=(
@@ -38,7 +40,7 @@ declare -a STEP_NAMES=(
     "应用bash补丁"
     "编译 Bash"
     "下载和配置 zlib"
-    "应用zlib补丁"
+    "应用 zlib 补丁"
     "编译 zlib"
     "复制和重新对齐文件"
     "打包输出"
@@ -64,8 +66,6 @@ declare -a STEP_FUNCTIONS=(
     "package_output"
 )
 
-CONFIG_FILE="config.conf"
-
 # 配置项定义：变量=描述
 declare -A CONFIG_ITEMS=(
     [ANDROID_NDK]="Android NDK路径"
@@ -74,7 +74,6 @@ declare -A CONFIG_ITEMS=(
     [ANDROID_API]="Android API级别"
     [COREUTILS_VERSION]="CoreUtils 版本"
     [BASH_VERSION]="Bash 版本"
-    [COMP_PYTHON]="是否编译 Python"
     [NEED_CLEAN_ELF]="是否对齐 ELF 头"
     [ZLIB_VERSION]="zlib 版本"
     [IS_QUIET]="安静输出"
@@ -89,17 +88,32 @@ declare -A CONFIG_TYPES=(
     [ANDROID_API]="number"
     [COREUTILS_VERSION]="version"
     [BASH_VERSION]="version"
-    [COMP_PYTHON]="bool"
     [NEED_CLEAN_ELF]="bool"
     [ZLIB_VERSION]="version"
     [IS_QUIET]="boolnum"
     [WRITE_LOG]="boolnum"
 )
 
+declare -A CONFIG_PKG_ITEMS=(
+    [COREUTILS_ENABLE]="coreutils"
+    [BASH_ENABLE]="bash"
+    [ZLIB_ENABLE]="zlib"
+)
+
 
 
 TOTAL_STEPS=${#STEP_NAMES[@]}
+TOTAL_PKG=${#CONFIG_PKG_ITEMS[@]}
 echo "TOTAL_STEPS: ${TOTAL_STEPS}"
+echo "TOTAL_PKG: ${TOTAL_PKG}"
+
+default_pkg_list() {
+    #export _ENABLE="true"
+    
+    export BASH_ENABLE="true"
+    export COREUTILS_ENABLE="true"
+    export ZLIB_ENABLE="true"
+}
 
 # ===================== 通用功能函数 =====================
 
@@ -164,6 +178,8 @@ run_step() {
     local step_name="$1"
     local step_func="$2"
     local step_num=$3
+    pkg_check ${step_num}
+    local check_result=$?
     
     # 记录开始时间
     local start_time=$(date +%s.%N)
@@ -176,22 +192,32 @@ run_step() {
         printf "\e[1;34mStep ${step_num}/${TOTAL_STEPS}: ${step_name}\e[0m "
     fi
     
+    if [ $check_result -eq 1 ]; then
+        echo "Should Skip!"
+    fi
+    
     # 执行步骤函数
     if [ -z "$IS_QUIET" ] || [ "$IS_QUIET" -ne 1 ]; then
-        # 非安静模式：显示命令输出
-        $step_func
+        if [ $check_result -eq 0 ]; then
+            # 非安静模式：显示命令输出
+            $step_func
+        fi
     else
         if [ -z "$WRITE_LOG" ] || [ "$WRITE_LOG" -ne 1 ]; then
-            # 安静模式：重定向输出到日志文件并显示spinner
-            ($step_func >> "$LOG_FILE" 2>&1) &
-            local pid=$!
-            spinner $pid
-            wait $pid
+            if [ $check_result -eq 0 ]; then
+                # 安静模式：重定向输出到日志文件并显示spinner
+                ($step_func >> "$LOG_FILE" 2>&1) &
+                local pid=$!
+                spinner $pid
+                wait $pid
+            fi
         else
-            ($step_func>/dev/null 2>&1) &
-            local pid=$!
-            spinner $pid
-            wait $pid
+            if [ $check_result -eq 0 ]; then
+                ($step_func>/dev/null 2>&1) &
+                local pid=$!
+                spinner $pid
+                wait $pid
+            fi
         fi
     fi
     
@@ -209,6 +235,31 @@ run_step() {
     
     # 更新进度条
     update_progress $step_num
+}
+
+pkg_check() {
+    local step_num=$1
+    local return_num=0
+    
+    if [ "${COREUTILS_ENABLE}" = "false" ]; then
+        if [[ $step_num -eq 5 || $step_num -eq 6 || $step_num -eq 7 || $step_num -eq 8 || $step_num -eq 9 ]]; then
+            return_num=1
+        fi
+    fi
+    
+    if [ "${BASH_ENABLE}" = "false" ]; then
+        if [[ $step_num -eq 10 || $step_num -eq 11 || $step_num -eq 12 ]]; then
+            return_num=1
+        fi
+    fi
+    
+    if [ "${ZLIB_ENABLE}" = "false" ]; then
+        if [[ $step_num -eq 13 || $step_num -eq 14 || $step_num -eq 15 ]]; then
+            return_num=1
+        fi
+    fi
+    
+    return ${return_num}
 }
 
 # ===================== 工具链函数 =====================
@@ -606,6 +657,8 @@ full_build_process() {
     echo "======================================"
     echo " Super Development Environment 编译程序"
     echo "======================================"
+    echo "总包: ${TOTAL_PKG} 个包"
+    echo "将要构建: ${PKG_TO_BUILD} 个包"
     echo -e "\n\e[1;33m将在3秒后开始...\e[0m"
     sleep 3
     
@@ -636,16 +689,12 @@ full_build_process() {
 
 # 手动构建步骤
 manual_build_steps() {
-    echo "======================================"
-    echo " 手动构建步骤"
-    echo "======================================"
-    
     while true; do
         options=()
+        options+=("0" "返回主菜单")
         for ((i=0; i<TOTAL_STEPS; i++)); do
             options+=("$((i+1))" "${STEP_NAMES[i]}")
         done
-        options+=("0" "返回主菜单")
         
         choice=$(dialog --backtitle "构建步骤" \
                      --title "手动构建" \
@@ -658,7 +707,7 @@ manual_build_steps() {
         elif [[ $choice -ge 1 && $choice -le $TOTAL_STEPS ]]; then
             local step_index=$((choice-1))
             echo -e "\n\e[1;34m步骤: ${STEP_NAMES[step_index]}...\e[0m"
-            ${STEP_FUNCTIONS[step_index]}
+            run_step "手动" ${STEP_FUNCTIONS[step_index]} 99999
         fi
     done
 }
@@ -721,6 +770,8 @@ edit_config() {
 configure_settings() {
     while true; do
         menu_items=()
+        menu_items+=("0" "返回")
+        menu_items+=("S" "保存配置")
         i=1
         for key in "${!CONFIG_ITEMS[@]}"; do
             value="${!key}"
@@ -728,9 +779,7 @@ configure_settings() {
             keys[$i]="$key"
             ((i++))
         done
-        menu_items+=("S" "保存配置")
-        menu_items+=("0" "返回")
-
+        
         choice=$(dialog --menu "选择要修改的配置：" 20 70 12 "${menu_items[@]}" 3>&1 1>&2 2>&3 3>&-)
 
         case "$choice" in
@@ -741,6 +790,91 @@ configure_settings() {
     done
 }
 
+
+
+
+# 配置软件包设置
+configure_package_list() {
+    while true; do
+        menu_items=()
+        
+        menu_items+=("0" "返回")
+        menu_items+=("S" "保存配置")
+        
+        i=1
+        for key in "${!CONFIG_PKG_ITEMS[@]}"; do
+            value="${!key}"
+            menu_items+=("$i" "${CONFIG_PKG_ITEMS[$key]} [$value]")
+            keys[$i]="$key"
+            ((i++))
+        done
+
+        choice=$(dialog --menu "选择要修改的配置：" 20 70 12 "${menu_items[@]}" 3>&1 1>&2 2>&3 3>&-)
+
+        case "$choice" in
+            0|"") break ;;
+            S) save_pkg_config ;;
+            *) edit_pkg_config "${keys[$choice]}" ;;
+        esac
+    done
+}
+
+edit_pkg_config() {
+    local var="$1"
+    local current="${!var}"
+    local new_value
+    local no_change=0
+
+    new_value=$(dialog --menu "选择 ${CONFIG_PKG_ITEMS[$var]}:" 12 30 5 \
+        true "启用" \
+        false "禁用" 3>&1 1>&2 2>&3 3>&-)
+        
+    if [ "$new_value" = "$current" ]; then
+        no_change=1
+    fi
+
+    [ -n "$new_value" ] && export "$var=$new_value"
+    
+    case ${new_value} in
+        "true")
+            if [ $no_change -eq 0 ]; then
+                ((PKG_TO_BUILD++))
+            fi
+            ;;
+        "false")
+            if [ $no_change -eq 0 ]; then
+                ((PKG_TO_BUILD--))
+            fi
+            ;;
+    esac
+    
+    echo "${PKG_TO_BUILD}"
+}
+
+# 保存/加载配置
+# 保存配置到文件
+save_pkg_config() {
+    > "$CONFIG_PKG_FILE"
+    for key in "${!CONFIG_PKG_ITEMS[@]}"; do
+        echo "$key=\"${!key}\"" >> "$CONFIG_PKG_FILE"
+    done
+    
+    echo "PKG_TO_BUILD=${PKG_TO_BUILD}" >> "$CONFIG_PKG_FILE"
+    
+    dialog --msgbox "配置已保存到 $CONFIG_PKG_FILE" 7 50
+}
+
+# 从文件加载配置
+load_pkg_config() {
+    if [[ -f "$CONFIG_PKG_FILE" ]]; then
+        source "$CONFIG_PKG_FILE"
+    else
+        echo "NO PKG CONFIG!"
+        export PKG_TO_BUILD=$TOTAL_PKG
+        
+        default_pkg_list
+    fi
+}
 
 # 清理输出
 clean_output() {
@@ -759,6 +893,8 @@ clean_output() {
     fi
 }
 
+
+
 clean_output_without_yes() {
     echo "清理输出文件..."
     rm -rf termux-elf-cleaner coreutils-* output bash-*
@@ -769,13 +905,14 @@ clean_output_without_yes() {
 # 主菜单
 main_menu() {
     while true; do
-        choice=$(dialog --backtitle "Super Development Environment 编译程序 (${BUILD_PROG_VERSION})" \
+        choice=$(dialog --backtitle "Super Development Environment 编译程序 (${BUILD_PROG_VERSION}, ${TOTAL_PKG}个包可用, 构建${PKG_TO_BUILD}个包)" \
                         --title "主菜单" \
                         --menu "请选择操作：" 15 50 5 \
                         1 "完整构建流程" \
                         2 "手动构建步骤" \
                         3 "配置设置" \
                         4 "清理输出" \
+                        5 "要构建哪些包" \
                         0 "退出" \
                         3>&1 1>&2 2>&3 3>&-)
         
@@ -784,6 +921,7 @@ main_menu() {
             2) manual_build_steps ;;
             3) configure_settings ;;
             4) clean_output ;;
+            5) configure_package_list ;;
             0) clear && exit 0 ;;
             *) return ;;
         esac
@@ -803,6 +941,8 @@ if ! command -v bc &>/dev/null; then
     apt install -y bc
 fi
 
-# 启动主菜单
+# 加载配置
 load_config
+load_pkg_config
+# 启动主菜单
 main_menu
