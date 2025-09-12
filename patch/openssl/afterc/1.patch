@@ -1,0 +1,12 @@
+--- openssl-3.5.0.mod/Makefile	2025-09-12 21:49:06.766776358 +0800
++++ openssl-3.5.0/Makefile	2025-09-12 21:50:08.594776362 +0800
+@@ -3168,7 +3168,7 @@
+ 
+ # Do not edit these manually. Use Configure with --prefix or --openssldir
+ # to change this!  Short explanation in the top comment in Configure
+-INSTALLTOP=/data/data/com.manager.ssb/files/usr
++INSTALLTOP=../output
+-OPENSSLDIR=/data/data/com.manager.ssb/files/usr/etc/tls
++OPENSSLDIR=../output/etc/tls
+ LIBDIR=lib
+ # $(libdir) is chosen to be compatible with the GNU coding standards

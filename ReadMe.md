@@ -47,4 +47,10 @@ bash 5.2.37
 
 zlib 1.3.1
 
+openssl 1:3.5.0
+
+ca-certificates 1:2025.08.12
+
 spm 1.0.0 (WIP)
+
+xdps 1.0.0 (WIP)

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.2"
+export BUILD_PROG_VERSION="v1.0.3"
 
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
@@ -17,35 +17,48 @@ export WRITE_LOG=1
 export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
 export CONFIG_FILE="config.conf"
 export PKG_CONFIG_FILE="pkg_config.conf"
+export PKG_MGR="xdps"
 
 # ===================== 包管理系统 =====================
 
 # 包定义结构
 declare -A PACKAGES=(
+    [xdps]="xdps"
     [coreutils]="coreutils"
     [bash]="bash"
     [zlib]="zlib"
+    [cacertificates]="cacertificates"
+    [openssl]="openssl"
 )
 
 # 包配置默认值
 declare -A PKG_ENABLE=(
+    [xdps]="false"
     [coreutils]="true"
     [bash]="true"
     [zlib]="true"
+    [cacertificates]="true"
+    [openssl]="true"
 )
 
 # 包版本配置
 declare -A PKG_VERSIONS=(
+    [xdps]="0.0"
     [coreutils]="9.7"
     [bash]="5.2.37"
     [zlib]="1.3.1"
+    [cacertificates]="1:2025.08.12"
+    [openssl]="1:3.5.0"
 )
 
 # 包构建步骤映射
 declare -A PKG_STEPS=(
-    [coreutils]="5 6 7 8 9"
-    [bash]="10 11 12"
-    [zlib]="13 14 15"
+    [xdps]="5 6 7"
+    [coreutils]="8 9 10 11 12"
+    [bash]="13 14 15"
+    [zlib]="16 17 18"
+    [cacertificates]="19"
+    [openssl]="20 21 22 23"
 )
 
 # 步骤定义
@@ -54,17 +67,32 @@ declare -a STEP_NAMES=(
     "准备目录"
     "克隆termux-elf-cleaner"
     "构建环境安装程序"
-    "下载Coreutils源码"
-    "解压并配置Coreutils"
-    "应用Coreutils补丁"
-    "配置Coreutils"
-    "编译Coreutils"
-    "下载和配置 Bash"
-    "应用bash补丁"
-    "编译 Bash"
-    "下载和配置 zlib"
-    "应用 zlib 补丁"
-    "编译 zlib"
+    
+    "下载xpds源码" #5
+    "应用xpds补丁" #6
+    "编译xdps" #7
+    
+    "下载Coreutils源码" #8
+    "解压并配置Coreutils" #9
+    "应用Coreutils补丁" #10
+    "配置Coreutils" #11
+    "编译Coreutils" #12
+    
+    "下载和配置 Bash" #13
+    "应用bash补丁" #14
+    "编译 Bash" #15
+    
+    "下载和配置 zlib" #16
+    "应用 zlib 补丁" #17
+    "编译 zlib" #18
+    
+    "打包 ca-certificates"
+    
+    "下载 openssl"
+    "应用 openssl 补丁"
+    "配置 openssl"
+    "编译 openssl"
+    
     "复制和重新对齐文件"
     "打包输出"
 )
@@ -74,17 +102,32 @@ declare -a STEP_FUNCTIONS=(
     "install_dir"
     "clone_termux_elf_cleaner"
     "build_installer"
+    
+    "configure_xdps"
+    "apply_patches_xdps"
+    "build_xdps"
+    
     "download_coreutils"
     "setup_coreutils"
     "apply_patches"
     "configure_coreutils"
     "build_coreutils"
+    
     "configure_bash"
     "apply_patches_bash"
     "build_bash"
+    
     "configure_zlib"
     "apply_patches_zlib"
     "build_zlib"
+    
+    "build_ca-certificates"
+    
+    "configure_openssl"
+    "apply_patches_openssl"
+    "configure_configure_openssl"
+    "build_openssl"
+    
     "copy_and_realign"
     "package_output"
 )
@@ -157,7 +200,7 @@ update_progress() {
 # 旋转动画函数（安静模式使用）
 spinner() {
     local pid=$1
-    local delay=0.05
+    local delay=1
     local spinstr='/-\|'
     local i=0
     
@@ -165,7 +208,7 @@ spinner() {
     
     while ps -p $pid > /dev/null; do
         local temp=${spinstr:i++%${#spinstr}:1}
-        printf "\rPlease wait... $temp ($i)"
+        printf "\rPlease wait... $temp ($is)"
         sleep $delay
     done
     
@@ -180,6 +223,8 @@ run_step() {
     pkg_check ${step_num}
     local check_result=$?
     
+    echo $check_result
+    
     # 记录开始时间
     local start_time=$(date +%s.%N)
     
@@ -192,7 +237,7 @@ run_step() {
     fi
     
     if [ $check_result -eq 1 ]; then
-        echo "Skip!"
+        echo "Skip it because it has been disabled!"
         # 更新进度条
         update_progress $step_num
         return
@@ -231,6 +276,10 @@ run_step() {
     
     # 更新进度条
     update_progress $step_num
+    
+    # 刷新，清除可能多余的构建参数
+    unsetup_toolchain
+    setup_toolchain
 }
 
 pkg_check() {
@@ -338,8 +387,8 @@ install_dir() {
     mkdir -p $BUILD_PROG_WORKING_DIR/output
     mkdir -p $BUILD_PROG_WORKING_DIR/output/lib
     mkdir -p $BUILD_PROG_WORKING_DIR/output/bin
-    
-    echo "准备完成"
+    mkdir -p $BUILD_PROG_WORKING_DIR/output/etc
+    mkdir -p $BUILD_PROG_WORKING_DIR/output/etc/tls
 }
 
 clone_termux_elf_cleaner() {
@@ -577,6 +626,95 @@ build_zlib() {
     cp $BUILD_PROG_WORKING_DIR/zlib-${PKG_VERSIONS[zlib]}/libz.so* $OUTPUT_LIB_DIR
 }
 
+configure_xdps() {
+    cd $BUILD_PROG_WORKING_DIR
+    
+    echo "get src..."
+}
+
+apply_patches_xdps() {
+    echo "应用Android补丁..."
+}
+
+build_xdps() {
+    echo "编译..."
+}
+
+
+configure_openssl() {
+    cd $BUILD_PROG_WORKING_DIR
+    echo "get src..."
+    OPENSSL_FILE="openssl-${PKG_VERSIONS[openssl]:2}.tar.gz"
+    
+    if [ ! -f "${OPENSSL_FILE}" ]; then
+        wget https://github.com/openssl/openssl/releases/download/openssl-${PKG_VERSIONS[openssl]:2}/${OPENSSL_FILE}
+    fi
+    
+    tar -zxvf ${OPENSSL_FILE}
+    
+    cd openssl-${PKG_VERSIONS[openssl]:2}
+}
+
+apply_patches_openssl() {
+    echo "应用Android补丁..."
+    
+    cd $BUILD_PROG_WORKING_DIR/openssl-${PKG_VERSIONS[openssl]:2}
+    
+    for patch_file in ../patch/openssl/*.patch; do
+        patch -p1 < $patch_file
+    done
+}
+
+configure_configure_openssl() {
+    cd $BUILD_PROG_WORKING_DIR/openssl-${PKG_VERSIONS[openssl]:2}
+    
+    CFLAGS+=" -DNO_SYSLOG"
+    
+    local PLATFORM="android-${TARGET_ARCH}"
+    case "$TARGET_ARCH" in
+        "arm"|"x86_64");;
+        "aarch64") PLATFORM="android-arm64";;
+        "i686") PLATFORM="android-x86";;
+    esac
+    
+    ./Configure "$PLATFORM" \
+        --prefix="$APP_INSTALL_DIR" \
+        --openssldir="$APP_INSTALL_DIR/etc/tls" \
+        shared \
+        zlib-dynamic \
+        no-ssl \
+        no-hw \
+        no-srp \
+        no-tests \
+        enable-tls1_3
+}
+
+build_openssl() {
+    echo "编译..."
+    
+    CFLAGS+=" -DNO_SYSLOG"
+    
+    cd $BUILD_PROG_WORKING_DIR/openssl-${PKG_VERSIONS[openssl]:2}
+    make depend
+    make -j$(nproc) all
+    
+    patch -p1 < ../patch/openssl/afterc/1.patch
+    
+    make install
+}
+
+build_ca-certificates() {
+    cd $BUILD_PROG_WORKING_DIR
+    
+    wget "https://curl.se/ca/cacert-$(sed 's/\./-/g' <<< ${PKG_VERSIONS[cacertificates]:2}).pem"
+    
+    mv $BUILD_PROG_WORKING_DIR/cacert-$(sed 's/\./-/g' <<< ${PKG_VERSIONS[cacertificates]:2}).pem cacert.pem
+    
+    install_dir
+    
+    mv cacert.pem $BUILD_PROG_WORKING_DIR/output/etc/tls
+}
+
 copy_and_realign() {
     echo "复制已编译文件..."
     cd $BUILD_PROG_WORKING_DIR
@@ -629,6 +767,7 @@ package_output() {
     rm -rf coreutils-${PKG_VERSIONS[coreutils]}
     rm -rf bash-${PKG_VERSIONS[bash]}
     rm -rf zlib-${PKG_VERSIONS[zlib]}
+    rm -rf openssl-${PKG_VERSIONS[openssl]}
     rm -rf termux-elf-cleaner
     
     echo "完成"
@@ -669,9 +808,9 @@ result_display() {
 full_build_process() {
     # 显示开始信息
     clear
-    echo "======================================"
+    echo "==========================================="
     echo " Super Development Environment 编译程序"
-    echo "======================================"
+    echo "==========================================="
     echo "总包: ${#PACKAGES[@]} 个包"
     echo "将要构建: ${PKG_TO_BUILD} 个包"
     echo -e "\n\e[1;33m将在3秒后开始...\e[0m"
@@ -835,7 +974,7 @@ load_pkg_config() {
             fi
         done
     else
-        echo "使用默认包配置"
+        echo "NO PKG CONFIG!"
     fi
     
     # 计算要构建的包数量
@@ -925,7 +1064,9 @@ clean_output() {
     if dialog --yesno "确定要清理所有输出文件吗?" 7 50; then
         echo "清理输出文件..."
         
-        rm -rf termux-elf-cleaner coreutils-* output bash-* zlib-*
+        rm -rf termux-elf-cleaner coreutils-* output bash-* zlib-* \
+            openssl-*
+        
         cd installer
         rm -rf libs obj
         cd $BUILD_PROG_WORKING_DIR
@@ -937,17 +1078,8 @@ clean_output() {
     fi
 }
 
-# 初始化包系统
-init_package_system() {
-    # 加载包配置
-    load_pkg_config
-}
-
 # 主菜单
 main_menu() {
-    # 初始化包系统
-    init_package_system
-    
     while true; do
         choice=$(dialog --backtitle "Super Development Environment 编译程序 (${BUILD_PROG_VERSION}, ${#PACKAGES[@]}个包可用, 构建${PKG_TO_BUILD}个包)" \
                         --title "主菜单" \
@@ -987,6 +1119,7 @@ fi
 
 # 加载主配置
 load_config
+load_pkg_config
 
 # 启动主菜单
 main_menu
