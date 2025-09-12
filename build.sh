@@ -11,19 +11,42 @@ export ANDROID_API=21
 export BUILD_PROG_WORKING_DIR=$PWD
 export OUTPUT_LIB_DIR=$BUILD_PROG_WORKING_DIR/output/lib
 export CLEAN_TOOLS=$PWD/termux-elf-cleaner/termux-elf-cleaner
-export COREUTILS_VERSION="9.7"
-export BASH_VERSION="5.2.37"
-export ZLIB_VERSION="1.3.1"
-export PYTHON_VERSION="3.12.11"
-export COMP_PYTHON="false"
-export ICONV_VERSION="1.18"
 export NEED_CLEAN_ELF="false"
-export PKG_MGR="spm"
 export IS_QUIET=0
 export WRITE_LOG=1
 export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
 export CONFIG_FILE="config.conf"
-export CONFIG_PKG_FILE="config_pkg.conf"
+export PKG_CONFIG_FILE="pkg_config.conf"
+
+# ===================== 包管理系统 =====================
+
+# 包定义结构
+declare -A PACKAGES=(
+    [coreutils]="coreutils"
+    [bash]="bash"
+    [zlib]="zlib"
+)
+
+# 包配置默认值
+declare -A PKG_ENABLE=(
+    [coreutils]="true"
+    [bash]="true"
+    [zlib]="true"
+)
+
+# 包版本配置
+declare -A PKG_VERSIONS=(
+    [coreutils]="9.7"
+    [bash]="5.2.37"
+    [zlib]="1.3.1"
+)
+
+# 包构建步骤映射
+declare -A PKG_STEPS=(
+    [coreutils]="5 6 7 8 9"
+    [bash]="10 11 12"
+    [zlib]="13 14 15"
+)
 
 # 步骤定义
 declare -a STEP_NAMES=(
@@ -72,10 +95,7 @@ declare -A CONFIG_ITEMS=(
     [APP_INSTALL_DIR]="安装目录"
     [TARGET_ARCH]="目标架构"
     [ANDROID_API]="Android API级别"
-    [COREUTILS_VERSION]="CoreUtils 版本"
-    [BASH_VERSION]="Bash 版本"
     [NEED_CLEAN_ELF]="是否对齐 ELF 头"
-    [ZLIB_VERSION]="zlib 版本"
     [IS_QUIET]="安静输出"
     [WRITE_LOG]="安静模式下保存日志"
 )
@@ -86,34 +106,13 @@ declare -A CONFIG_TYPES=(
     [APP_INSTALL_DIR]="path"
     [TARGET_ARCH]="arch"
     [ANDROID_API]="number"
-    [COREUTILS_VERSION]="version"
-    [BASH_VERSION]="version"
     [NEED_CLEAN_ELF]="bool"
-    [ZLIB_VERSION]="version"
     [IS_QUIET]="boolnum"
     [WRITE_LOG]="boolnum"
 )
 
-declare -A CONFIG_PKG_ITEMS=(
-    [COREUTILS_ENABLE]="coreutils"
-    [BASH_ENABLE]="bash"
-    [ZLIB_ENABLE]="zlib"
-)
-
-
-
 TOTAL_STEPS=${#STEP_NAMES[@]}
-TOTAL_PKG=${#CONFIG_PKG_ITEMS[@]}
-echo "TOTAL_STEPS: ${TOTAL_STEPS}"
-echo "TOTAL_PKG: ${TOTAL_PKG}"
-
-default_pkg_list() {
-    #export _ENABLE="true"
-    
-    export BASH_ENABLE="true"
-    export COREUTILS_ENABLE="true"
-    export ZLIB_ENABLE="true"
-}
+PKG_TO_BUILD=0
 
 # ===================== 通用功能函数 =====================
 
@@ -193,31 +192,28 @@ run_step() {
     fi
     
     if [ $check_result -eq 1 ]; then
-        echo "Should Skip!"
+        echo "Skip!"
+        # 更新进度条
+        update_progress $step_num
+        return
     fi
     
     # 执行步骤函数
     if [ -z "$IS_QUIET" ] || [ "$IS_QUIET" -ne 1 ]; then
-        if [ $check_result -eq 0 ]; then
-            # 非安静模式：显示命令输出
-            $step_func
-        fi
+        # 非安静模式：显示命令输出
+        $step_func
     else
         if [ -z "$WRITE_LOG" ] || [ "$WRITE_LOG" -ne 1 ]; then
-            if [ $check_result -eq 0 ]; then
-                # 安静模式：重定向输出到日志文件并显示spinner
-                ($step_func >> "$LOG_FILE" 2>&1) &
-                local pid=$!
-                spinner $pid
-                wait $pid
-            fi
+            # 安静模式：重定向输出到日志文件并显示spinner
+            ($step_func >> "$LOG_FILE" 2>&1) &
+            local pid=$!
+            spinner $pid
+            wait $pid
         else
-            if [ $check_result -eq 0 ]; then
-                ($step_func>/dev/null 2>&1) &
-                local pid=$!
-                spinner $pid
-                wait $pid
-            fi
+            ($step_func>/dev/null 2>&1) &
+            local pid=$!
+            spinner $pid
+            wait $pid
         fi
     fi
     
@@ -241,23 +237,15 @@ pkg_check() {
     local step_num=$1
     local return_num=0
     
-    if [ "${COREUTILS_ENABLE}" = "false" ]; then
-        if [[ $step_num -eq 5 || $step_num -eq 6 || $step_num -eq 7 || $step_num -eq 8 || $step_num -eq 9 ]]; then
-            return_num=1
+    for pkg in "${!PKG_STEPS[@]}"; do
+        if [ "${PKG_ENABLE[$pkg]}" = "false" ]; then
+            # 检查步骤是否属于这个包
+            if echo "${PKG_STEPS[$pkg]}" | grep -q "\<$step_num\>"; then
+                return_num=1
+                break
+            fi
         fi
-    fi
-    
-    if [ "${BASH_ENABLE}" = "false" ]; then
-        if [[ $step_num -eq 10 || $step_num -eq 11 || $step_num -eq 12 ]]; then
-            return_num=1
-        fi
-    fi
-    
-    if [ "${ZLIB_ENABLE}" = "false" ]; then
-        if [[ $step_num -eq 13 || $step_num -eq 14 || $step_num -eq 15 ]]; then
-            return_num=1
-        fi
-    fi
+    done
     
     return ${return_num}
 }
@@ -400,7 +388,7 @@ build_installer() {
 
 download_coreutils() {
     echo "下载coreutils源码..."
-    COREUTILS_TAR="coreutils-${COREUTILS_VERSION}.tar.xz"
+    COREUTILS_TAR="coreutils-${PKG_VERSIONS[coreutils]}.tar.xz"
     
     if [ ! -f "${COREUTILS_TAR}" ]; then
         wget -c "https://mirrors.ustc.edu.cn/gnu/coreutils/${COREUTILS_TAR}" || \
@@ -410,15 +398,15 @@ download_coreutils() {
 
 setup_coreutils() {
     echo "解压源码..."
-    tar xf "coreutils-${COREUTILS_VERSION}.tar.xz"
-    cd "coreutils-${COREUTILS_VERSION}"
+    tar xf "coreutils-${PKG_VERSIONS[coreutils]}.tar.xz"
+    cd "coreutils-${PKG_VERSIONS[coreutils]}"
     
     setup_toolchain
 }
 
 apply_patches() {
     echo "应用Android补丁..."
-    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
+    cd $BUILD_PROG_WORKING_DIR/coreutils-${PKG_VERSIONS[coreutils]}
     for patch_file in ../patch/coreutils/*.patch; do
         patch -p1 < $patch_file
     done
@@ -427,7 +415,7 @@ apply_patches() {
 configure_coreutils() {
     echo "配置coreutils..."
     
-    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
+    cd $BUILD_PROG_WORKING_DIR/coreutils-${PKG_VERSIONS[coreutils]}
     
     ./configure \
         --host="${TARGET_HOST}" \
@@ -468,7 +456,7 @@ build_coreutils() {
     echo "开始编译..."
     setup_toolchain
     
-    cd $BUILD_PROG_WORKING_DIR/coreutils-${COREUTILS_VERSION}
+    cd $BUILD_PROG_WORKING_DIR/coreutils-${PKG_VERSIONS[coreutils]}
     make -j$(nproc)
 }
 
@@ -476,7 +464,7 @@ configure_bash() {
     cd $BUILD_PROG_WORKING_DIR
     
     echo "下载bash源码..."
-    BASH_TAR="bash-${BASH_VERSION}.tar.gz"
+    BASH_TAR="bash-${PKG_VERSIONS[bash]}.tar.gz"
     
     if [ ! -f "${BASH_TAR}" ]; then
         wget -c "https://mirrors.ustc.edu.cn/gnu/bash/${BASH_TAR}" || \
@@ -484,7 +472,7 @@ configure_bash() {
     fi
     
     tar -zxvf ${BASH_TAR}
-    cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
+    cd $BUILD_PROG_WORKING_DIR/bash-${PKG_VERSIONS[bash]}
     
     setup_toolchain
     
@@ -522,7 +510,7 @@ configure_bash() {
 
 apply_patches_bash() {
     echo "应用Android补丁..."
-    cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
+    cd $BUILD_PROG_WORKING_DIR/bash-${PKG_VERSIONS[bash]}
     for patch_file in ../patch/bash/*.patch; do
         patch -p1 < $patch_file
     done
@@ -530,7 +518,7 @@ apply_patches_bash() {
 
 build_bash() {
     echo "开始编译..."
-    cd $BUILD_PROG_WORKING_DIR/bash-${BASH_VERSION}
+    cd $BUILD_PROG_WORKING_DIR/bash-${PKG_VERSIONS[bash]}
     setup_toolchain
     
     make -j$(nproc)
@@ -543,16 +531,16 @@ configure_zlib() {
     cd $BUILD_PROG_WORKING_DIR
     
     echo "get src..."
-    ZLIB_FILE="zlib-${ZLIB_VERSION}.tar.gz"
+    ZLIB_FILE="zlib-${PKG_VERSIONS[zlib]}.tar.gz"
     
     if [ ! -f "${ZLIB_FILE}" ]; then
         wget "https://zlib.net/${ZLIB_FILE}" || \
-        wget "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/${ZLIB_FILE}"
+        wget "https://github.com/madler/zlib/releases/download/v${PKG_VERSIONS[zlib]}/${ZLIB_FILE}"
     fi
     
     tar -zxvf ${ZLIB_FILE}
     
-    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
+    cd $BUILD_PROG_WORKING_DIR/zlib-${PKG_VERSIONS[zlib]}
     
     echo "配置zlib..."
     
@@ -567,14 +555,14 @@ configure_zlib() {
 
 apply_patches_zlib() {
     echo "应用Android补丁..."
-    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
+    cd $BUILD_PROG_WORKING_DIR/zlib-${PKG_VERSIONS[zlib]}
     
     patch -p1 < ../patch/zlib/1.patch
 }
 
 build_zlib() {
     echo "编译..."
-    cd $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}
+    cd $BUILD_PROG_WORKING_DIR/zlib-${PKG_VERSIONS[zlib]}
     
     unsetup_toolchain
     setup_toolchain
@@ -586,22 +574,38 @@ build_zlib() {
     unsetup_toolchain
     
     mkdir -p $BUILD_PROG_WORKING_DIR/output
-    cp $BUILD_PROG_WORKING_DIR/zlib-${ZLIB_VERSION}/libz.so* $OUTPUT_LIB_DIR
+    cp $BUILD_PROG_WORKING_DIR/zlib-${PKG_VERSIONS[zlib]}/libz.so* $OUTPUT_LIB_DIR
 }
 
 copy_and_realign() {
     echo "复制已编译文件..."
     cd $BUILD_PROG_WORKING_DIR
     mkdir -p output
-    cp coreutils-${COREUTILS_VERSION}/src/coreutils output/bin
-    cp bash-${BASH_VERSION}/bash output/bin
+    
+    if [ "${PKG_ENABLE[coreutils]}" = "true" ]; then
+        cp coreutils-${PKG_VERSIONS[coreutils]}/src/coreutils output/bin
+    fi
+    
+    if [ "${PKG_ENABLE[bash]}" = "true" ]; then
+        cp bash-${PKG_VERSIONS[bash]}/bash output/bin
+    fi
+    
+    if [ "${PKG_ENABLE[zlib]}" = "true" ]; then
+        cp -r $BUILD_PROG_WORKING_DIR/zlib-${PKG_VERSIONS[zlib]}/libz.so* output/lib
+    fi
     
     case ${NEED_CLEAN_ELF} in
         "true")
             echo "重新对齐ELF..."
             cd termux-elf-cleaner
-            ./termux-elf-cleaner ../output/coreutils
-            ./termux-elf-cleaner ../output/bash
+            
+            if [ "${PKG_ENABLE[coreutils]}" = "true" ]; then
+                ./termux-elf-cleaner ../output/bin/coreutils
+            fi
+            
+            if [ "${PKG_ENABLE[bash]}" = "true" ]; then
+                ./termux-elf-cleaner ../output/bin/bash
+            fi
             ;;
         "false")
             echo "Skip!"
@@ -621,7 +625,12 @@ package_output() {
     
     echo "运行事务后清理..."
     cd $BUILD_PROG_WORKING_DIR
-    rm -rf termux-elf-cleaner coreutils-* bash-* zlib-*
+    
+    rm -rf coreutils-${PKG_VERSIONS[coreutils]}
+    rm -rf bash-${PKG_VERSIONS[bash]}
+    rm -rf zlib-${PKG_VERSIONS[zlib]}
+    rm -rf termux-elf-cleaner
+    
     echo "完成"
 }
 
@@ -635,6 +644,12 @@ result_display() {
         echo "输出文件: output/base.zip"
         echo "目标架构: $TARGET_ARCH"
         echo "安装目录: $APP_INSTALL_DIR"
+        echo "构建的包:"
+        for pkg in "${!PACKAGES[@]}"; do
+            if [ "${PKG_ENABLE[$pkg]}" = "true" ]; then
+                echo "  - ${PACKAGES[$pkg]} (${PKG_VERSIONS[$pkg]})"
+            fi
+        done
     else
         echo -e "\e[1;31m编译未完成或出错！请检查日志。\e[0m"
     fi
@@ -657,7 +672,7 @@ full_build_process() {
     echo "======================================"
     echo " Super Development Environment 编译程序"
     echo "======================================"
-    echo "总包: ${TOTAL_PKG} 个包"
+    echo "总包: ${#PACKAGES[@]} 个包"
     echo "将要构建: ${PKG_TO_BUILD} 个包"
     echo -e "\n\e[1;33m将在3秒后开始...\e[0m"
     sleep 3
@@ -712,7 +727,6 @@ manual_build_steps() {
     done
 }
 
-# 配置设置
 # ==================== 保存/加载配置 ====================
 
 # 保存配置到文件
@@ -742,7 +756,7 @@ edit_config() {
     local new_value
 
     case "$type" in
-        path|version|number)
+        path|number)
             new_value=$(dialog --inputbox "输入 ${CONFIG_ITEMS[$var]}:" 8 50 "$current" 3>&1 1>&2 2>&3 3>&-)
             ;;
         bool)
@@ -790,90 +804,120 @@ configure_settings() {
     done
 }
 
+# ==================== 包管理函数 ====================
 
+# 保存包配置
+save_pkg_config() {
+    > "$PKG_CONFIG_FILE"
+    for pkg in "${!PACKAGES[@]}"; do
+        echo "PKG_ENABLE_${pkg}=\"${PKG_ENABLE[$pkg]}\"" >> "$PKG_CONFIG_FILE"
+    done
+    for pkg in "${!PACKAGES[@]}"; do
+        echo "PKG_VERSION_${pkg}=\"${PKG_VERSIONS[$pkg]}\"" >> "$PKG_CONFIG_FILE"
+    done
+    echo "PKG_TO_BUILD=${PKG_TO_BUILD}" >> "$PKG_CONFIG_FILE"
+    dialog --msgbox "包配置已保存到 $PKG_CONFIG_FILE" 7 50
+}
 
+# 加载包配置
+load_pkg_config() {
+    if [[ -f "$PKG_CONFIG_FILE" ]]; then
+        source "$PKG_CONFIG_FILE"
+        # 将加载的配置应用到数组
+        for pkg in "${!PACKAGES[@]}"; do
+            local enable_var="PKG_ENABLE_${pkg}"
+            local version_var="PKG_VERSION_${pkg}"
+            if [ -n "${!enable_var}" ]; then
+                PKG_ENABLE["$pkg"]="${!enable_var}"
+            fi
+            if [ -n "${!version_var}" ]; then
+                PKG_VERSIONS["$pkg"]="${!version_var}"
+            fi
+        done
+    else
+        echo "使用默认包配置"
+    fi
+    
+    # 计算要构建的包数量
+    PKG_TO_BUILD=0
+    for pkg in "${!PACKAGES[@]}"; do
+        if [ "${PKG_ENABLE[$pkg]}" = "true" ]; then
+            ((PKG_TO_BUILD++))
+        fi
+    done
+}
 
-# 配置软件包设置
-configure_package_list() {
+# 包管理菜单
+package_management_menu() {
     while true; do
-        menu_items=()
+        options=()
+        options+=("0" "返回主菜单")
+        options+=("1" "保存配置")
         
-        menu_items+=("0" "返回")
-        menu_items+=("S" "保存配置")
-        
-        i=1
-        for key in "${!CONFIG_PKG_ITEMS[@]}"; do
-            value="${!key}"
-            menu_items+=("$i" "${CONFIG_PKG_ITEMS[$key]} [$value]")
-            keys[$i]="$key"
+        local i=2
+        for pkg in "${!PACKAGES[@]}"; do
+            local status="禁用"
+            [ "${PKG_ENABLE[$pkg]}" = "true" ] && status="启用"
+            options+=("$i" "${PACKAGES[$pkg]} [$status]")
+            pkg_keys[$i]="$pkg"
             ((i++))
         done
+        
+        choice=$(dialog --menu "包管理 - 选择要配置的包：" 17 50 8 \
+                 "${options[@]}" \
+                 3>&1 1>&2 2>&3 3>&-)
+        
+        if [[ $choice -eq 0 ]]; then
+            break
+        elif [[ $choice -eq 1 ]]; then
+            save_pkg_config
+        elif [[ -n "${pkg_keys[$choice]}" ]]; then
+            configure_package "${pkg_keys[$choice]}"
+        fi
+    done
+}
 
-        choice=$(dialog --menu "选择要修改的配置：" 20 70 12 "${menu_items[@]}" 3>&1 1>&2 2>&3 3>&-)
-
-        case "$choice" in
-            0|"") break ;;
-            S) save_pkg_config ;;
-            *) edit_pkg_config "${keys[$choice]}" ;;
+# 配置单个包
+configure_package() {
+    local pkg=$1
+    local current_enable="${PKG_ENABLE[$pkg]}"
+    local current_version="${PKG_VERSIONS[$pkg]}"
+    
+    while true; do
+        choice=$(dialog --menu "配置 ${PACKAGES[$pkg]}：" 12 40 5 \
+                 1 "启用状态: $current_enable" \
+                 2 "版本: $current_version" \
+                 3 "返回" \
+                 3>&1 1>&2 2>&3 3>&-)
+        
+        case $choice in
+            1)
+                new_value=$(dialog --menu "选择启用状态：" 10 30 3 \
+                          "true" "启用" \
+                          "false" "禁用" \
+                          3>&1 1>&2 2>&3 3>&-)
+                if [ -n "$new_value" ]; then
+                    PKG_ENABLE[$pkg]="$new_value"
+                    current_enable="$new_value"
+                    # 更新构建计数
+                    if [ "$new_value" = "true" ]; then
+                        ((PKG_TO_BUILD++))
+                    else
+                        ((PKG_TO_BUILD--))
+                    fi
+                fi
+                ;;
+            2)
+                new_value=$(dialog --inputbox "输入版本号：" 8 40 "$current_version" \
+                          3>&1 1>&2 2>&3 3>&-)
+                if [ -n "$new_value" ]; then
+                    PKG_VERSIONS[$pkg]="$new_value"
+                    current_version="$new_value"
+                fi
+                ;;
+            3|"") break ;;
         esac
     done
-}
-
-edit_pkg_config() {
-    local var="$1"
-    local current="${!var}"
-    local new_value
-    local no_change=0
-
-    new_value=$(dialog --menu "选择 ${CONFIG_PKG_ITEMS[$var]}:" 12 30 5 \
-        true "启用" \
-        false "禁用" 3>&1 1>&2 2>&3 3>&-)
-        
-    if [ "$new_value" = "$current" ]; then
-        no_change=1
-    fi
-
-    [ -n "$new_value" ] && export "$var=$new_value"
-    
-    case ${new_value} in
-        "true")
-            if [ $no_change -eq 0 ]; then
-                ((PKG_TO_BUILD++))
-            fi
-            ;;
-        "false")
-            if [ $no_change -eq 0 ]; then
-                ((PKG_TO_BUILD--))
-            fi
-            ;;
-    esac
-    
-    echo "${PKG_TO_BUILD}"
-}
-
-# 保存/加载配置
-# 保存配置到文件
-save_pkg_config() {
-    > "$CONFIG_PKG_FILE"
-    for key in "${!CONFIG_PKG_ITEMS[@]}"; do
-        echo "$key=\"${!key}\"" >> "$CONFIG_PKG_FILE"
-    done
-    
-    echo "PKG_TO_BUILD=${PKG_TO_BUILD}" >> "$CONFIG_PKG_FILE"
-    
-    dialog --msgbox "配置已保存到 $CONFIG_PKG_FILE" 7 50
-}
-
-# 从文件加载配置
-load_pkg_config() {
-    if [[ -f "$CONFIG_PKG_FILE" ]]; then
-        source "$CONFIG_PKG_FILE"
-    else
-        echo "NO PKG CONFIG!"
-        export PKG_TO_BUILD=$TOTAL_PKG
-        
-        default_pkg_list
-    fi
 }
 
 # 清理输出
@@ -893,26 +937,26 @@ clean_output() {
     fi
 }
 
-
-
-clean_output_without_yes() {
-    echo "清理输出文件..."
-    rm -rf termux-elf-cleaner coreutils-* output bash-*
-    dialog --msgbox "输出文件已清理！" 6 40
-    clear
+# 初始化包系统
+init_package_system() {
+    # 加载包配置
+    load_pkg_config
 }
 
 # 主菜单
 main_menu() {
+    # 初始化包系统
+    init_package_system
+    
     while true; do
-        choice=$(dialog --backtitle "Super Development Environment 编译程序 (${BUILD_PROG_VERSION}, ${TOTAL_PKG}个包可用, 构建${PKG_TO_BUILD}个包)" \
+        choice=$(dialog --backtitle "Super Development Environment 编译程序 (${BUILD_PROG_VERSION}, ${#PACKAGES[@]}个包可用, 构建${PKG_TO_BUILD}个包)" \
                         --title "主菜单" \
-                        --menu "请选择操作：" 15 50 5 \
+                        --menu "请选择操作：" 15 50 6 \
                         1 "完整构建流程" \
                         2 "手动构建步骤" \
                         3 "配置设置" \
                         4 "清理输出" \
-                        5 "要构建哪些包" \
+                        5 "包管理" \
                         0 "退出" \
                         3>&1 1>&2 2>&3 3>&-)
         
@@ -921,7 +965,7 @@ main_menu() {
             2) manual_build_steps ;;
             3) configure_settings ;;
             4) clean_output ;;
-            5) configure_package_list ;;
+            5) package_management_menu ;;
             0) clear && exit 0 ;;
             *) return ;;
         esac
@@ -937,12 +981,12 @@ if ! command -v dialog &>/dev/null; then
 fi
 
 if ! command -v bc &>/dev/null; then
-    echo "bc..."
+    echo "安装bc..."
     apt install -y bc
 fi
 
-# 加载配置
+# 加载主配置
 load_config
-load_pkg_config
+
 # 启动主菜单
 main_menu
