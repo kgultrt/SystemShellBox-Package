@@ -51,7 +51,7 @@ spinner() {
     
     while ps -p $pid > /dev/null; do
         local temp=${spinstr:i++%${#spinstr}:1}
-        printf "\rPlease wait... $temp ($is)"
+        printf "\rPlease wait... $temp ($i s)"
         sleep $delay
     done
     
@@ -65,9 +65,7 @@ run_step() {
     local step_num=$3
     pkg_check ${step_num}
     local check_result=$?
-    
-    echo $check_result
-    
+
     # 记录开始时间
     local start_time=$(date +%s.%N)
     

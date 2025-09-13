@@ -53,5 +53,5 @@ fi
 load_config
 load_pkg_config
 
-# 启动主菜单
-main_menu
+# 启动
+main $@

@@ -21,12 +21,9 @@ result_display() {
     fi
     echo "========================================================"
     
-    # 安静模式：显示总耗时
-    if [ -n "$IS_QUIET" ] && [ "$IS_QUIET" -eq 1 ]; then
-        local total_end_time=$(date +%s.%N)
-        local total_elapsed_time=$(echo "$total_end_time - $total_start_time" | bc | awk '{printf "%.2f", $0}')
-        echo -e "\n\e[1;32m[OK] 所有步骤完成! 总耗时: ${total_elapsed_time}秒\e[0m"
-    fi
+    local total_end_time=$(date +%s.%N)
+    local total_elapsed_time=$(echo "$total_end_time - $total_start_time" | bc | awk '{printf "%.2f", $0}')
+    echo -e "\n\e[1;32m[OK] 所有步骤完成! 总耗时: ${total_elapsed_time}秒\e[0m"
     
     sleep 5 #给用户留时间查看
 }
@@ -251,9 +248,9 @@ configure_package() {
     
     while true; do
         choice=$(dialog --menu "配置 ${PACKAGES[$pkg]}：" 12 40 5 \
+                 0 "返回" \
                  1 "启用状态: $current_enable" \
                  2 "版本: $current_version" \
-                 3 "返回" \
                  3>&1 1>&2 2>&3 3>&-)
         
         case $choice in
@@ -281,7 +278,7 @@ configure_package() {
                     current_version="$new_value"
                 fi
                 ;;
-            3|"") break ;;
+            0|"") break ;;
         esac
     done
 }
