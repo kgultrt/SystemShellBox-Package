@@ -288,13 +288,13 @@ clean_output() {
     if dialog --yesno "确定要清理所有输出文件吗?" 7 50; then
         echo "清理输出文件..."
         
-        rm -rf termux-elf-cleaner coreutils-* output bash-* zlib-* \
+        rm -rfv termux-elf-cleaner coreutils-* output bash-* zlib-* \
             openssl-*
         
         cd installer
-        rm -rf libs obj
+        rm -rfv libs obj
         cd $BUILD_PROG_WORKING_DIR
-        rm -rf base
+        rm -rfv base
         
         unzip base.zip
         

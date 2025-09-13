@@ -366,25 +366,3 @@ copy_and_realign() {
             ;;
     esac
 }
-
-package_output() {
-    echo "打包..."
-    
-    cd $BUILD_PROG_WORKING_DIR
-    cp -r ./output/* ./base
-    cd base
-    zip -r base.zip *
-    cd ..
-    mv base/base.zip output/
-    
-    echo "运行事务后清理..."
-    cd $BUILD_PROG_WORKING_DIR
-    
-    rm -rf coreutils-${PKG_VERSIONS[coreutils]}
-    rm -rf bash-${PKG_VERSIONS[bash]}
-    rm -rf zlib-${PKG_VERSIONS[zlib]}
-    rm -rf openssl-${PKG_VERSIONS[openssl]}
-    rm -rf termux-elf-cleaner
-    
-    echo "完成"
-}

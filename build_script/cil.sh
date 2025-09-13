@@ -38,16 +38,23 @@ main() {
             -s|--step)
                 local CLI_STEP_ID=$2
                 
+                CLI_STEP_ID=$((CLI_STEP_ID - 1))
+                
                 if [[ $CLI_STEP_ID -eq "" ]]; then
                     CLI_STEP_ID=0
                 fi
                 
-                if [[ $CLI_STEP_ID -gt $TOTAL_STEPS ]]; then
+                if [[ $CLI_STEP_ID -gt $((TOTAL_STEPS - 1)) ]]; then
                     echo "[FAIIED] ID不存在"
                     exit 1
                 fi
                 
-                run_step "${STEP_NAMES[CLI_STEP_ID]}" ${STEP_FUNCTIONS[${CLI_STEP_ID}]} ${CLI_STEP_ID}
+                if [[ $CLI_STEP_ID -lt 0 ]]; then
+                    echo "[FAIIED] ID不存在"
+                    exit 1
+                fi
+                
+                run_step "${STEP_NAMES[CLI_STEP_ID]}" ${STEP_FUNCTIONS[${CLI_STEP_ID}]} $((CLI_STEP_ID + 1))
                 unset_CLI
                 exit 0
                 shift
