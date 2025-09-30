@@ -289,14 +289,12 @@ clean_output() {
         echo "清理输出文件..."
         
         rm -rfv termux-elf-cleaner coreutils-* output bash-* zlib-* \
-            openssl-*
+            openssl-* base
         
         cd installer
         rm -rfv libs obj
         cd $BUILD_PROG_WORKING_DIR
         rm -rfv base
-        
-        unzip base.zip
         
         dialog --msgbox "输出文件已清理！" 6 40
     fi
@@ -313,6 +311,7 @@ main_menu() {
                         3 "配置设置" \
                         4 "清理输出" \
                         5 "包管理" \
+                        6 "关于" \
                         0 "退出" \
                         3>&1 1>&2 2>&3 3>&-)
         
@@ -322,6 +321,7 @@ main_menu() {
             3) configure_settings ;;
             4) clean_output ;;
             5) package_management_menu ;;
+            6) adout_this_prog ;;
             0) clear && exit 0 ;;
             *) return ;;
         esac

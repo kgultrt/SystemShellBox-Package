@@ -13,11 +13,16 @@ install_dependencies() {
 }
 
 install_dir() {
+    cd $BUILD_PROG_WORKING_DIR
     mkdir -p $BUILD_PROG_WORKING_DIR/output
     mkdir -p $BUILD_PROG_WORKING_DIR/output/lib
     mkdir -p $BUILD_PROG_WORKING_DIR/output/bin
     mkdir -p $BUILD_PROG_WORKING_DIR/output/etc
     mkdir -p $BUILD_PROG_WORKING_DIR/output/etc/tls
+    
+    if [ ! -f "base" ]; then
+        unzip base.zip
+    fi
 }
 
 clone_termux_elf_cleaner() {
