@@ -15,6 +15,9 @@ adout_this_prog() {
     
     Change Log:
     
+        v1.0.6.002-patch1:
+            修复一处命令错误
+        
         v1.0.6.002:
             开始写更新日志!
             更改打包方式，移除 base.zip

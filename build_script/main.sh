@@ -63,7 +63,7 @@ build_installer() {
             ;;
     esac
     
-    cp $INSTALLER_PATH $BUILD_PROG_WORKING_DIR/output/home/.term
+    cp -r $INSTALLER_PATH $BUILD_PROG_WORKING_DIR/output/home/.term
     unset INSTALLER_PATH
     cd $BUILD_PROG_WORKING_DIR
 }
