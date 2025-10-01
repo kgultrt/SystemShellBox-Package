@@ -21,7 +21,7 @@ install_dir() {
     mkdir -p $BUILD_PROG_WORKING_DIR/output/etc
     mkdir -p $BUILD_PROG_WORKING_DIR/output/etc/tls
     
-    cp home $BUILD_PROG_WORKING_DIR/output
+    cp -r home $BUILD_PROG_WORKING_DIR/output
 }
 
 clone_termux_elf_cleaner() {
