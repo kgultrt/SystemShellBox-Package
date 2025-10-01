@@ -14,15 +14,14 @@ install_dependencies() {
 
 install_dir() {
     cd $BUILD_PROG_WORKING_DIR
+    
     mkdir -p $BUILD_PROG_WORKING_DIR/output
     mkdir -p $BUILD_PROG_WORKING_DIR/output/lib
     mkdir -p $BUILD_PROG_WORKING_DIR/output/bin
     mkdir -p $BUILD_PROG_WORKING_DIR/output/etc
     mkdir -p $BUILD_PROG_WORKING_DIR/output/etc/tls
     
-    if [ ! -f "base" ]; then
-        unzip base.zip
-    fi
+    cp home $BUILD_PROG_WORKING_DIR/output
 }
 
 clone_termux_elf_cleaner() {
@@ -64,7 +63,7 @@ build_installer() {
             ;;
     esac
     
-    cp $INSTALLER_PATH $BUILD_PROG_WORKING_DIR/base/home/.term
+    cp $INSTALLER_PATH $BUILD_PROG_WORKING_DIR/output/home/.term
     unset INSTALLER_PATH
     cd $BUILD_PROG_WORKING_DIR
 }
@@ -141,6 +140,7 @@ build_coreutils() {
     
     cd $BUILD_PROG_WORKING_DIR/coreutils-${PKG_VERSIONS[coreutils]}
     make -j$(nproc)
+    make install prefix=../output
 }
 
 configure_bash() {
@@ -205,6 +205,7 @@ build_bash() {
     setup_toolchain
     
     make -j$(nproc)
+    make install prefix=../output
     
     unsetup_toolchain
     setup_toolchain
@@ -257,7 +258,8 @@ build_zlib() {
     unsetup_toolchain
     
     mkdir -p $BUILD_PROG_WORKING_DIR/output
-    cp $BUILD_PROG_WORKING_DIR/zlib-${PKG_VERSIONS[zlib]}/libz.so* $OUTPUT_LIB_DIR
+    echo "安装..."
+    make install prefix=../output
 }
 
 
@@ -318,10 +320,7 @@ build_openssl() {
     cd $BUILD_PROG_WORKING_DIR/openssl-${PKG_VERSIONS[openssl]:2}
     make depend
     make -j$(nproc) all
-    
-    patch -p1 < ../patch/openssl/afterc/1.patch
-    
-    make install
+    make install OPENSSLDIR=../output/etc/tls INSTALLTOP=../output
 }
 
 build_ca-certificates() {
@@ -340,18 +339,6 @@ copy_and_realign() {
     echo "复制已编译文件..."
     cd $BUILD_PROG_WORKING_DIR
     mkdir -p output
-    
-    if [ "${PKG_ENABLE[coreutils]}" = "true" ]; then
-        cp coreutils-${PKG_VERSIONS[coreutils]}/src/coreutils output/bin
-    fi
-    
-    if [ "${PKG_ENABLE[bash]}" = "true" ]; then
-        cp bash-${PKG_VERSIONS[bash]}/bash output/bin
-    fi
-    
-    if [ "${PKG_ENABLE[zlib]}" = "true" ]; then
-        cp -r $BUILD_PROG_WORKING_DIR/zlib-${PKG_VERSIONS[zlib]}/libz.so* output/lib
-    fi
     
     case ${NEED_CLEAN_ELF} in
         "true")

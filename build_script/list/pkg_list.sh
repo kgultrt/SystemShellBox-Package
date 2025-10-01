@@ -19,7 +19,7 @@ declare -A PKG_ENABLE=(
     [zlib]="true"
     [cacertificates]="true"
     [openssl]="true"
-    [androidndk]="true"
+    [androidndk]="false"
 )
 
 # 包版本配置

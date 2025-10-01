@@ -289,7 +289,7 @@ clean_output() {
         echo "清理输出文件..."
         
         rm -rfv termux-elf-cleaner coreutils-* output bash-* zlib-* \
-            openssl-* base
+            openssl-* base $NDK_FILE
         
         cd installer
         rm -rfv libs obj
