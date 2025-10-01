@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.6.002-patch2"
+export BUILD_PROG_VERSION="v1.0.6.003"
 
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
@@ -35,6 +35,7 @@ echo "Super Development Environment Build Program ${BUILD_PROG_VERSION}!"
 echo
 
 source $BUILD_PROG_WORKING_DIR/build_script/list/pkg_list.sh
+echo "LOADED PKG LIST!"
 
 TOTAL_STEPS=${#STEP_NAMES[@]}
 echo "TOTAL_STEPS: ${TOTAL_STEPS}"
@@ -58,5 +59,5 @@ load_config
 load_pkg_config
 
 # 启动
-echo
+echo "Starting..."
 main $@

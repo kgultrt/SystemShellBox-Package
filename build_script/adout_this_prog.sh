@@ -15,6 +15,9 @@ adout_this_prog() {
     
     Change Log:
     
+        v1.0.6.003:
+            优化TUI
+        
         v1.0.6.002-patch2:
             操，改错了，有点心急;
             真正的修复了一处命令错误

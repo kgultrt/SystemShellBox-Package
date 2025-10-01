@@ -45,12 +45,12 @@ main() {
                 fi
                 
                 if [[ $CLI_STEP_ID -gt $((TOTAL_STEPS - 1)) ]]; then
-                    echo "[FAIIED] ID不存在"
+                    echo -e "\e[1;31m[FAILED]\e[0m ID不存在"
                     exit 1
                 fi
                 
                 if [[ $CLI_STEP_ID -lt 0 ]]; then
-                    echo "[FAIIED] ID不存在"
+                    echo -e "\e[1;31m[FAILED]\e[0m ID不存在"
                     exit 1
                 fi
                 
