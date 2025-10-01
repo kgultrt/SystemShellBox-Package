@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.6.003"
+export BUILD_PROG_VERSION="v1.0.6.004"
 
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
@@ -17,8 +17,14 @@ export WRITE_LOG=1
 export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
 export CONFIG_FILE="config.conf"
 export PKG_CONFIG_FILE="pkg_config.conf"
+export PROGRESS_FILE="progress_saved.conf"
 export PKG_MGR="xdps"
 
+export TOO_LONG_TIME_BREAK=1
+export TO_BREAK_TIME=5
+
+export TOO_LONG_TIME_BREAK_WARN_TIMES=1 #全局计数器
+export IS_PROGRESS_FILE=0
 
 load_build_script() {
     for script_file in $BUILD_PROG_WORKING_DIR/build_script/*.sh; do
@@ -57,6 +63,7 @@ fi
 # 加载主配置
 load_config
 load_pkg_config
+load_progress_file
 
 # 启动
 echo "Starting..."

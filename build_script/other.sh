@@ -59,6 +59,13 @@ full_build_process() {
     for ((cstep=0; cstep<TOTAL_STEPS; cstep++)); do
         ((current_step++))
         run_step "${STEP_NAMES[cstep]}" "${STEP_FUNCTIONS[cstep]}" $current_step
+        
+        local end_time=$(date +%s.%N)
+        local elapsed_time=$(echo "$end_time - $total_start_time" | bc | awk '{printf "%d", $0}')
+        
+        long_time_check $(elapsed_time) $((cstep+1))
+        
+        unset end_time elapsed_time
     done
     
     # 显示完成信息

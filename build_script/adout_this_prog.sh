@@ -1,20 +1,28 @@
 adout_this_prog() {
-    echo "Please wait!"
+    echo "Please wait...!"
     
     dialog --msgbox "
     Super Development Environment 编译程序!
     (${BUILD_PROG_VERSION}, ${#PACKAGES[@]}个包可用)
-    
     当前选择构建了${PKG_TO_BUILD}个包!
     
     shell脚本是由kgultrt制作的!
-    
     patch/ 下的大部分内容来自termux-package!
+    
+    安静模式: ${IS_QUIET}
+    
+    是否启用了“自行暂停超长时间构建”: ${TOO_LONG_TIME_BREAK}
+    启用时，每${TO_BREAK_TIME}小时暂停一次。
+    全局计数器: ${TOO_LONG_TIME_BREAK_WARN_TIMES}
+    进度文件模式: ${IS_PROGRESS_FILE}
     
     
     
     Change Log:
     
+        v1.0.6.004:
+            添加 自行暂停超长时间构建 功能
+        
         v1.0.6.003:
             优化TUI
         
@@ -28,5 +36,5 @@ adout_this_prog() {
         v1.0.6.002:
             开始写更新日志!
             更改打包方式，移除 base.zip
-    " 70 50
+    " 70 70
 }
