@@ -82,7 +82,7 @@ full_build_process_progress_file() {
     echo "==========================================="
     echo "总包: ${#PACKAGES[@]} 个包"
     echo "将要构建: ${PKG_TO_BUILD} 个包"
-    echo -e "\n\e[1;33m将在3秒后继续构建... 直到完毕\e[0m"
+    echo -e "\n\e[1;33m将在3秒后继续构建...\e[0m"
     sleep 3
     
     clear
@@ -105,6 +105,13 @@ full_build_process_progress_file() {
     for ((cstep=$saved_step; cstep<TOTAL_STEPS; cstep++)); do
         ((current_step++))
         run_step "${STEP_NAMES[cstep]}" "${STEP_FUNCTIONS[cstep]}" $current_step
+        
+        local end_time=$(date +%s.%N)
+        local elapsed_time=$(echo "$end_time - $total_start_time" | bc | awk '{printf "%d", $0}')
+        
+        long_time_check $elapsed_time $((cstep+1))
+        
+        unset end_time elapsed_time
     done
     
     # 显示完成信息

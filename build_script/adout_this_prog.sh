@@ -20,6 +20,9 @@ adout_this_prog() {
     
     Change Log:
     
+        v1.0.6.004-patch3:
+            修复一处错误
+        
         v1.0.6.004:
             添加 自行暂停超长时间构建 功能
         

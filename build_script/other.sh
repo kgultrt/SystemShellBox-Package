@@ -63,7 +63,7 @@ full_build_process() {
         local end_time=$(date +%s.%N)
         local elapsed_time=$(echo "$end_time - $total_start_time" | bc | awk '{printf "%d", $0}')
         
-        long_time_check $(elapsed_time) $((cstep+1))
+        long_time_check $elapsed_time $((cstep+1))
         
         unset end_time elapsed_time
     done
