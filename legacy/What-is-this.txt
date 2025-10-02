@@ -1,0 +1,15 @@
+这个是项目早期的遗产
+
+very_old_build.sh - 我所能找到的最早版本 —— 因为最早的就应该就是光板了
+truely_base_build.sh - 这个项目所特有的Step-by-Step架构的最早起源处，也是这个项目从这里开始蓬勃发展
+
+保留这些
+仅仅只是为了纪念和激励之用
+
+This is the early legacy of the project
+
+very_old_build.sh - The earliest version I could find — because the very first one should be just a bare setup
+truely_base_build.sh - The earliest origin of the project's unique step-by-step architecture, also the point from which the project began to flourish
+
+Keep them
+Just for commemoration and inspiration purposes

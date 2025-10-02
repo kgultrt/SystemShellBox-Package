@@ -6,15 +6,17 @@ usage() {
     echo "  -ng, --no-gui             直接构建"
     echo "  -q, --quiet               安静输出"
     echo "  -s, --step [ID]           直接运行步骤"
+    echo "  -l, --list                显示步骤列表"
     exit 1
 }
 
 CLI_GUI=1
 CLI_DIREECT_BUILD=0
 CLI_STEP_ID=0
+CLI_LIST=0
 
 unset_CLI() {
-    unset CLI_GUI CLI_DIREECT_BUILD CLI_STEP_ID
+    unset CLI_GUI CLI_DIREECT_BUILD CLI_STEP_ID CLI_LIST
 }
 
 # 验证步骤ID的有效性
@@ -51,6 +53,17 @@ handle_quiet() {
     IS_QUIET=1
 }
 
+handle_list() {
+    CLI_GUI=0
+    
+    echo
+    echo "TOTAL_STEPS: ${TOTAL_STEPS}"
+    
+    for ((i=0; i<TOTAL_STEPS; i++)); do
+        echo "$((i+1)) ${STEP_NAMES[i]}"
+    done
+}
+
 # 分发参数处理
 dispatch_argument() {
     case "$1" in
@@ -58,6 +71,7 @@ dispatch_argument() {
         -q|--quiet)      handle_quiet ;;
         -g|--gui)        ;; # 默认就是GUI，不需要操作
         -s|--step)       CLI_STEP_ID=$2; handle_step_execution ;;
+        -l|--list)       handle_list ;;
         *)               echo "错误：未知选项 $1"; usage ;;
     esac
 }

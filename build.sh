@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.6.006"
+export BUILD_PROG_VERSION="v1.0.6.007"
 
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
@@ -26,16 +26,21 @@ export CONFIG_FILE="config.conf"
 export PKG_CONFIG_FILE="pkg_config.conf"
 export PROGRESS_FILE="progress_saved.conf"
 export SYSTEM_CHECK_FILE="build_script/system.sh"
-export BRANCH_FILE="branch"
 export IS_LIUNX=0
 export LIUNX_TYPE=0
 export BRANCH=$(cat $BUILD_PROG_WORKING_DIR/branch)
 
 load_build_script() {
+    local files_count=0
+    
     for script_file in $BUILD_PROG_WORKING_DIR/build_script/*.sh; do
         echo "LOADING $script_file!"
         source $script_file
+        files_count=$((files_count+1))
     done
+    
+    echo
+    echo "Successfully loaded $files_count files!"
     echo
 }
 
