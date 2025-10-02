@@ -26,7 +26,7 @@ validate_step_id() {
     fi
     
     if [[ $step_id -lt 0 ]] || [[ $step_id -gt $((TOTAL_STEPS - 1)) ]]; then
-        echo -e "\e[1;31m[FAILED]\e[0m 步骤ID不存在: $step_id"
+        echo -e "\e[1;31m[FAILED]\e[0m 步骤ID不存在: $((step_id + 1))"
         exit 1
     fi
 }

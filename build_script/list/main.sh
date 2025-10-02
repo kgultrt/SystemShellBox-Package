@@ -117,20 +117,3 @@ declare -a STEP_FUNCTIONS=(
     "copy_and_realign"
     "package_output"
 )
-
-pkg_check() {
-    local step_num=$1
-    local return_num=0
-    
-    for pkg in "${!PKG_STEPS[@]}"; do
-        if [ "${PKG_ENABLE[$pkg]}" = "false" ]; then
-            # 检查步骤是否属于这个包
-            if echo "${PKG_STEPS[$pkg]}" | grep -q "\<$step_num\>"; then
-                return_num=1
-                break
-            fi
-        fi
-    done
-    
-    return ${return_num}
-}

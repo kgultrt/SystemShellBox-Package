@@ -141,6 +141,9 @@ build_coreutils() {
     cd $BUILD_PROG_WORKING_DIR/coreutils-${PKG_VERSIONS[coreutils]}
     make -j$(nproc)
     make install prefix=../output
+    
+    cd $BUILD_PROG_WORKING_DIR
+    rm -rfv coreutils-*
 }
 
 configure_bash() {
@@ -207,6 +210,9 @@ build_bash() {
     make -j$(nproc)
     make install prefix=../output
     
+    cd $BUILD_PROG_WORKING_DIR
+    rm -rfv bash-*
+    
     unsetup_toolchain
     setup_toolchain
 }
@@ -260,6 +266,9 @@ build_zlib() {
     mkdir -p $BUILD_PROG_WORKING_DIR/output
     echo "安装..."
     make install prefix=../output
+    
+    cd $BUILD_PROG_WORKING_DIR
+    rm -rfv zlib-*
 }
 
 
@@ -321,6 +330,9 @@ build_openssl() {
     make depend
     make -j$(nproc) all
     make install OPENSSLDIR=../output/etc/tls INSTALLTOP=../output
+    
+    cd $BUILD_PROG_WORKING_DIR
+    rm -rfv openssl-*
 }
 
 build_ca-certificates() {

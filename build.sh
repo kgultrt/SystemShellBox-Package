@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.6.005"
+export BUILD_PROG_VERSION="v1.0.6.006"
 
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
@@ -26,14 +26,17 @@ export CONFIG_FILE="config.conf"
 export PKG_CONFIG_FILE="pkg_config.conf"
 export PROGRESS_FILE="progress_saved.conf"
 export SYSTEM_CHECK_FILE="build_script/system.sh"
+export BRANCH_FILE="branch"
 export IS_LIUNX=0
 export LIUNX_TYPE=0
+export BRANCH=$(cat $BUILD_PROG_WORKING_DIR/branch)
 
 load_build_script() {
     for script_file in $BUILD_PROG_WORKING_DIR/build_script/*.sh; do
         echo "LOADING $script_file!"
         source $script_file
     done
+    echo
 }
 
 
@@ -57,7 +60,11 @@ else
     echo
 fi
 
-source $BUILD_PROG_WORKING_DIR/build_script/list/pkg_list.sh
+
+load_build_script
+
+export WILL_LOAD_BRANCH_FILE="${BRANCH}.sh"
+source $BUILD_PROG_WORKING_DIR/build_script/list/${WILL_LOAD_BRANCH_FILE}
 echo "LOADED PKG LIST!"
 source $BUILD_PROG_WORKING_DIR/build_script/config/config.sh
 echo "LOADED CONFIG LIST!"
@@ -67,8 +74,6 @@ echo "TOTAL_STEPS: ${TOTAL_STEPS}"
 PKG_TO_BUILD=0
 
 echo
-
-load_build_script
 if [[ ! -f ${SYSTEM_CHECK_FILE} ]]; then
     echo
     check_system

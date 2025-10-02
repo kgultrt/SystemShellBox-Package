@@ -312,13 +312,14 @@ main_menu() {
     while true; do
         choice=$(dialog --backtitle "Super Development Environment 编译程序 ${BUILD_PROG_VERSION}" \
                         --title "主菜单" \
-                        --menu "请选择操作：" 15 50 6 \
+                        --menu "请选择操作：" 15 50 10 \
                         1 "完整构建流程" \
                         2 "手动构建步骤" \
                         3 "配置设置" \
                         4 "清理输出" \
                         5 "包管理" \
-                        6 "关于" \
+                        6 "更改分支" \
+                        7 "关于" \
                         0 "退出" \
                         3>&1 1>&2 2>&3 3>&-)
         
@@ -328,7 +329,8 @@ main_menu() {
             3) configure_settings ;;
             4) clean_output ;;
             5) package_management_menu ;;
-            6) adout_this_prog ;;
+            6) change_branch ;;
+            7) adout_this_prog ;;
             0) clear && exit 0 ;;
             *) return ;;
         esac

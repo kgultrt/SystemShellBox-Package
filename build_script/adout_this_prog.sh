@@ -3,6 +3,7 @@ adout_this_prog() {
     
     dialog --msgbox "
     Super Development Environment 编译程序!
+    当前分支: $BRANCH
     (${BUILD_PROG_VERSION}, ${#PACKAGES[@]}个包可用)
     当前选择构建了${PKG_TO_BUILD}个包!
     
@@ -22,6 +23,9 @@ adout_this_prog() {
     
     Change Log:
     
+        v1.0.6.006:
+            添加分支功能
+        
         v1.0.6.005:
             初步liunx支持
             脚本里面增加了一些检查
