@@ -10,6 +10,8 @@ adout_this_prog() {
     patch/ 下的大部分内容来自termux-package!
     
     安静模式: ${IS_QUIET}
+    在liunx上运行: ${IS_LIUNX}
+    liunx发行版类型: ${LIUNX_TYPE}
     
     是否启用了“自行暂停超长时间构建”: ${TOO_LONG_TIME_BREAK}
     启用时，每${TO_BREAK_TIME}小时暂停一次。
@@ -20,6 +22,10 @@ adout_this_prog() {
     
     Change Log:
     
+        v1.0.6.005:
+            初步liunx支持
+            脚本里面增加了一些检查
+        
         v1.0.6.004-patch3:
             修复一处错误
         

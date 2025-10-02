@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.6.004"
+export BUILD_PROG_VERSION="v1.0.6.005"
 
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
@@ -14,17 +14,20 @@ export CLEAN_TOOLS=$PWD/termux-elf-cleaner/termux-elf-cleaner
 export NEED_CLEAN_ELF="false"
 export IS_QUIET=0
 export WRITE_LOG=1
+export PKG_MGR="xdps"
+export TOO_LONG_TIME_BREAK=1
+export TO_BREAK_TIME=5
+
+# 全局计数器/变量
+export TOO_LONG_TIME_BREAK_WARN_TIMES=1
+export IS_PROGRESS_FILE=0
 export LOG_FILE="progress_$(date +%Y%m%d_%H%M%S).log"
 export CONFIG_FILE="config.conf"
 export PKG_CONFIG_FILE="pkg_config.conf"
 export PROGRESS_FILE="progress_saved.conf"
-export PKG_MGR="xdps"
-
-export TOO_LONG_TIME_BREAK=1
-export TO_BREAK_TIME=5
-
-export TOO_LONG_TIME_BREAK_WARN_TIMES=1 #全局计数器
-export IS_PROGRESS_FILE=0
+export SYSTEM_CHECK_FILE="build_script/system.sh"
+export IS_LIUNX=0
+export LIUNX_TYPE=0
 
 load_build_script() {
     for script_file in $BUILD_PROG_WORKING_DIR/build_script/*.sh; do
@@ -40,24 +43,54 @@ echo
 echo "Super Development Environment Build Program ${BUILD_PROG_VERSION}!"
 echo
 
+if [ ! -d "build_script" ]; then
+    echo
+    echo "程序不完整!"
+    echo "请检查:"
+    echo "1. build_script 文件夹是否存在"
+    echo "2. 你所在的运行目录, 当前的运行目录是: $BUILD_PROG_WORKING_DIR"
+    echo
+    exit 255
+else
+    echo
+    echo "START LOADING!"
+    echo
+fi
+
 source $BUILD_PROG_WORKING_DIR/build_script/list/pkg_list.sh
 echo "LOADED PKG LIST!"
+source $BUILD_PROG_WORKING_DIR/build_script/config/config.sh
+echo "LOADED CONFIG LIST!"
 
 TOTAL_STEPS=${#STEP_NAMES[@]}
 echo "TOTAL_STEPS: ${TOTAL_STEPS}"
 PKG_TO_BUILD=0
 
+echo
+
 load_build_script
+if [[ ! -f ${SYSTEM_CHECK_FILE} ]]; then
+    echo
+    check_system
+fi
 
 # 检查并安装dialog
 if ! command -v dialog &>/dev/null; then
     echo "安装dialog..."
-    apt install -y dialog
+    if [[ $IS_LIUNX -eq 1 ]]; then
+        sudo apt install -y dialog
+    else
+        apt install -y dialog
+    fi
 fi
 
 if ! command -v bc &>/dev/null; then
     echo "安装bc..."
-    apt install -y bc
+    if [[ $IS_LIUNX -eq 1 ]]; then
+        sudo apt install -y bc
+    else
+        apt install -y bc
+    fi
 fi
 
 # 加载主配置

@@ -310,7 +310,7 @@ clean_output() {
 # 主菜单
 main_menu() {
     while true; do
-        choice=$(dialog --backtitle "Super Development Environment 编译程序 (${BUILD_PROG_VERSION}, ${#PACKAGES[@]}个包可用, 构建${PKG_TO_BUILD}个包)" \
+        choice=$(dialog --backtitle "Super Development Environment 编译程序 ${BUILD_PROG_VERSION}" \
                         --title "主菜单" \
                         --menu "请选择操作：" 15 50 6 \
                         1 "完整构建流程" \
