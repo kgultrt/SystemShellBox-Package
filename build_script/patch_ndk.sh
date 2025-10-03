@@ -13,7 +13,7 @@ patch_ndk() {
             
             cd $TOOLCHAIN_ROOT/sysroot
             
-            for f in $BUILD_PROG_WORKING_DIR/patch/ndk/*.patch; do
+            for f in $BUILD_PROG_WORKING_DIR/patch/ndks/*.patch; do
                 echo "Applying ndk-patch: $(basename $f)"
                 
                 sed "s%\@APP_INSTALL_DIR\@%${APP_INSTALL_DIR}%g" "$f" | \
