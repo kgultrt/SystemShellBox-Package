@@ -7,7 +7,7 @@ install_dependencies() {
     apt update -y
     
     echo "安装依赖包..."
-    apt install -y git automake autoconf clang binutils make gettext bison gperf texinfo wget cmake zip dialog
+    apt install -y git automake autoconf clang binutils make gettext bison gperf texinfo wget cmake zip dialog xz-utils tar
     
     export BUILD_PROG_WORKING_DIR=$PWD
 }

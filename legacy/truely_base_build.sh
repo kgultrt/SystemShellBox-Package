@@ -36,7 +36,7 @@ main_menu() {
 full_build_process() {
     (
         install_dependencies
-        clone_and_patch
+        # clone_and_patch
         build_installer
         download_coreutils
         apply_patches

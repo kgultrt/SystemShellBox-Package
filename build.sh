@@ -1,11 +1,12 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.6.007"
+export BUILD_PROG_VERSION="v1.0.6.008"
 
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
 export NDK_BUILD="${ANDROID_NDK}/ndk-build"
 export APP_INSTALL_DIR="/data/data/com.manager.ssb/files/usr"
+export APP_HOME_DIR="/data/data/com.manager.ssb/files/usr/home"
 export TARGET_ARCH="aarch64"
 export ANDROID_API=21
 export BUILD_PROG_WORKING_DIR=$PWD
@@ -17,6 +18,7 @@ export WRITE_LOG=1
 export PKG_MGR="xdps"
 export TOO_LONG_TIME_BREAK=1
 export TO_BREAK_TIME=5
+export DISADIE_PROGRESS=1
 
 # 全局计数器/变量
 export TOO_LONG_TIME_BREAK_WARN_TIMES=1
@@ -29,6 +31,7 @@ export SYSTEM_CHECK_FILE="build_script/system.sh"
 export IS_LIUNX=0
 export LIUNX_TYPE=0
 export BRANCH=$(cat $BUILD_PROG_WORKING_DIR/branch)
+export NDK_HAS_PATCHED=0
 
 load_build_script() {
     local files_count=0
@@ -82,6 +85,11 @@ echo
 if [[ ! -f ${SYSTEM_CHECK_FILE} ]]; then
     echo
     check_system
+fi
+
+if [ -f $BUILD_PROG_WORKING_DIR/build_script/config/data.txt ]; then
+    source $BUILD_PROG_WORKING_DIR/build_script/config/data.txt
+    rm -rf $BUILD_PROG_WORKING_DIR/build_script/config/data.txt
 fi
 
 # 检查并安装dialog

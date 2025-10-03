@@ -77,6 +77,8 @@ dispatch_argument() {
 }
 
 main() {
+    save_prog_data
+    
     if [[ $IS_PROGRESS_FILE -eq 1 ]]; then
         unset_CLI
         full_build_process_progress_file $STEP_PROGRESS_FILE

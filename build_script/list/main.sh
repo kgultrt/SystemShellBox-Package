@@ -18,6 +18,7 @@ declare -A PACKAGES=(
     [androidndk]="androidndk"
     [androidsupport]="androidsupport"
     [libbz2]="libbz2"
+    [zip]="zip"
 )
 
 # 包配置默认值
@@ -31,6 +32,7 @@ declare -A PKG_ENABLE=(
     [androidndk]="false"
     [androidsupport]="true"
     [libbz2]="true"
+    [zip]="true"
 )
 
 # 包版本配置
@@ -44,25 +46,28 @@ declare -A PKG_VERSIONS=(
     [androidndk]="r28c"
     [androidsupport]="29"
     [libbz2]="1.0.8"
+    [zip]="3.0"
 )
 
-# 包构建步骤映射
+# 包构建步骤映射 - 现在使用函数名而不是数字ID
 declare -A PKG_STEPS=(
-    [xdps]="5 6 7"
-    [coreutils]="8 9 10 11 12"
-    [bash]="13 14 15"
-    [zlib]="16 17 18"
-    [cacertificates]="19"
-    [openssl]="20 21 22 23"
-    [androidndk]="24"
-    [androidsupport]="25 26 27"
-    [libbz2]="28 29 30"
+    [xdps]="configure_xdps apply_patches_xdps build_xdps"
+    [coreutils]="download_coreutils setup_coreutils apply_patches configure_coreutils build_coreutils"
+    [bash]="configure_bash apply_patches_bash build_bash"
+    [zlib]="configure_zlib apply_patches_zlib build_zlib"
+    [cacertificates]="build_ca-certificates"
+    [openssl]="configure_openssl apply_patches_openssl configure_configure_openssl build_openssl"
+    [androidndk]="build_androidndk"
+    [androidsupport]="configure_androidsupport compilation_androidsupport install_androidsupport"
+    [libbz2]="configure_libbz2 apply_patches_libbz2 build_libbz2"
+    [zip]="configure_zip apply_patches_zip build_zip"
 )
 
-# 步骤定义
+# 步骤定义 - 保持顺序不变
 declare -a STEP_NAMES=(
     "安装依赖"
     "准备目录"
+    "修补NDK"
     "克隆termux-elf-cleaner"
     "构建环境安装程序"
     
@@ -101,6 +106,10 @@ declare -a STEP_NAMES=(
     "应用 libbz2 补丁"
     "编译 libbz2"
     
+    "下载和配置 zip"
+    "应用 zip 补丁"
+    "编译 zip"
+    
     "复制和重新对齐文件"
     "打包输出"
 )
@@ -108,6 +117,7 @@ declare -a STEP_NAMES=(
 declare -a STEP_FUNCTIONS=(
     "install_dependencies"
     "install_dir"
+    "patch_ndk"
     "clone_termux_elf_cleaner"
     "build_installer"
     
@@ -145,6 +155,10 @@ declare -a STEP_FUNCTIONS=(
     "configure_libbz2"
     "apply_patches_libbz2"
     "build_libbz2"
+    
+    "configure_zip"
+    "apply_patches_zip"
+    "build_zip"
     
     "copy_and_realign"
     "package_output"

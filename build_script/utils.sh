@@ -21,10 +21,12 @@ show_progress() {
     progress_bar+="\e[0m"
     
     # 显示进度条
-    tput sc  # 保存光标位置
-    tput cup 0 0  # 移动到屏幕顶部
-    echo -ne "\r[${progress_bar}] ${percent}%"
-    tput rc  # 恢复光标位置
+    if [[ $DISADIE_PROGRESS -eq 0 ]]; then
+        tput sc  # 保存光标位置
+        tput cup 0 0  # 移动到屏幕顶部
+        echo -ne "\r[${progress_bar}] ${percent}%"
+        tput rc  # 恢复光标位置
+    fi
 }
 
 # 更新进度并显示
@@ -63,7 +65,7 @@ run_step() {
     local step_name="$1"
     local step_func="$2"
     local step_num=$3
-    pkg_check ${step_num}
+    pkg_check ${step_func}
     local check_result=$?
 
     # 记录开始时间
@@ -124,13 +126,12 @@ run_step() {
 }
 
 pkg_check() {
-    local step_num=$1
+    local step_func=$1
     local return_num=0
     
     for pkg in "${!PKG_STEPS[@]}"; do
         if [ "${PKG_ENABLE[$pkg]}" = "false" ]; then
-            # 检查步骤是否属于这个包
-            if echo "${PKG_STEPS[$pkg]}" | grep -q "\<$step_num\>"; then
+            if [[ " ${PKG_STEPS[$pkg]} " == *" $step_func "* ]]; then
                 return_num=1
                 break
             fi
@@ -138,4 +139,12 @@ pkg_check() {
     done
     
     return ${return_num}
+}
+
+general_apply_patch() {
+    local pkg_name=$1
+    
+    for patch_file in ../patch/$pkg_name/*.patch; do
+        patch -p1 < $patch_file
+    done
 }
