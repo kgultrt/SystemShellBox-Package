@@ -19,11 +19,10 @@ configure_androidsupport() {
     cp wcwidth-${version_2}/wcwidth.c libandroid-support-${version_1}/src/
     
     rm -rfv wcwidth-${version_2}
-    
-    cd libandroid-support-${version_1}
 }
 
 compilation_androidsupport() {
+    cd $BUILD_PROG_WORKING_DIR
     cd libandroid-support-${PKG_VERSIONS[androidsupport]}
     setup_toolchain
     
@@ -45,6 +44,7 @@ compilation_androidsupport() {
 install_androidsupport() {
     echo "install..."
     
+    cd $BUILD_PROG_WORKING_DIR
     cd libandroid-support-${PKG_VERSIONS[androidsupport]}
     
     install -Dm600 libandroid-support.a $OUTPUT_LIB_DIR/libandroid-support.a

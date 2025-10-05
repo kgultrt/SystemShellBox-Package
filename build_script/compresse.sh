@@ -49,8 +49,9 @@ configure_zip() {
     
     if [ ! -f "zip30.tar.gz" ]; then
         wget https://downloads.sourceforge.net/infozip/zip30.tar.gz
-        tar -zxvf zip30.tar.gz
     fi
+    
+    tar -zxvf zip30.tar.gz
 }
 
 apply_patches_zip() {

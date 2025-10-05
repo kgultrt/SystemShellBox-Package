@@ -307,6 +307,43 @@ clean_output() {
     fi
 }
 
+build_by_pkg() {
+    while true; do
+        options=()
+        options+=("0" "返回主菜单")
+        
+        local i=1
+        for pkg in "${!PACKAGES[@]}"; do
+            if [ "${PKG_ENABLE[$pkg]}" = "true" ]; then
+                options+=("$i" "构建 ${PACKAGES[$pkg]}")
+                pkg_keys[$i]="$pkg"
+                ((i++))
+            fi
+        done
+        
+        choice=$(dialog --menu "选择要构建的包：" 17 50 8 \
+                 "${options[@]}" \
+                 3>&1 1>&2 2>&3 3>&-)
+        
+        if [[ $choice -eq 0 ]]; then
+            break
+        elif [[ -n "${pkg_keys[$choice]}" ]]; then
+            clear
+            
+            local pkg_name="${pkg_keys[$choice]}"
+            local pkg_steps_list="${PKG_STEPS[$pkg_name]}"
+            local will_runing_step=$(echo "${pkg_steps_list}" | tr " " "\n")
+            
+            local the_cont=0
+            
+            for the_step in $will_runing_step; do
+                the_cont=$((the_cont + 1))
+                run_step "构建${pkg_name}的第${the_cont}个步骤" "${the_step}" 0
+            done
+        fi
+    done
+}
+
 # 主菜单
 main_menu() {
     while true; do
@@ -315,24 +352,26 @@ main_menu() {
                         --menu "请选择操作：" 20 60 10 \
                         1 "完整构建流程" \
                         2 "手动构建步骤" \
-                        3 "配置设置" \
-                        4 "清理输出" \
-                        5 "包管理" \
-                        6 "更改分支" \
-                        7 "关于${BRANCH}分支" \
-                        8 "关于" \
+                        3 "单独构建包" \
+                        4 "配置设置" \
+                        5 "清理输出" \
+                        6 "包管理" \
+                        7 "更改分支" \
+                        8 "关于${BRANCH}分支" \
+                        9 "关于" \
                         0 "退出" \
                         3>&1 1>&2 2>&3 3>&-)
         
         case $choice in
             1) full_build_process ;;
             2) manual_build_steps ;;
-            3) configure_settings ;;
-            4) clean_output ;;
-            5) package_management_menu ;;
-            6) change_branch ;;
-            7) adout_branch ;;
-            8) adout_this_prog ;;
+            3) build_by_pkg ;;
+            4) configure_settings ;;
+            5) clean_output ;;
+            6) package_management_menu ;;
+            7) change_branch ;;
+            8) adout_branch ;;
+            9) adout_this_prog ;;
             0) clear && exit 0 ;;
             *) return ;;
         esac
