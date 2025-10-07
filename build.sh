@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.6.008"
+export BUILD_PROG_VERSION="v1.0.7"
 
 # ===================== 配置部分 =====================
 export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
@@ -15,7 +15,7 @@ export CLEAN_TOOLS=$PWD/termux-elf-cleaner/termux-elf-cleaner
 export NEED_CLEAN_ELF="false"
 export IS_QUIET=0
 export WRITE_LOG=1
-export PKG_MGR="xdps"
+export PKG_MGR="pacman"
 export TOO_LONG_TIME_BREAK=1
 export TO_BREAK_TIME=5
 export DISADIE_PROGRESS=1

@@ -17,6 +17,7 @@ install_dir() {
     
     mkdir -p $BUILD_PROG_WORKING_DIR/output
     mkdir -p $BUILD_PROG_WORKING_DIR/output/lib
+    mkdir -p $BUILD_PROG_WORKING_DIR/output/include
     mkdir -p $BUILD_PROG_WORKING_DIR/output/bin
     mkdir -p $BUILD_PROG_WORKING_DIR/output/etc
     mkdir -p $BUILD_PROG_WORKING_DIR/output/etc/tls

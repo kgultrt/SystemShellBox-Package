@@ -340,6 +340,12 @@ build_by_pkg() {
                 the_cont=$((the_cont + 1))
                 run_step "构建${pkg_name}的第${the_cont}个步骤" "${the_step}" 0
             done
+            
+            echo
+            echo "Build Successful!"
+            echo
+            
+            sleep 1
         fi
     done
 }

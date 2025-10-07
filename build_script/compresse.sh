@@ -64,11 +64,12 @@ build_zip() {
     echo "编译..."
     
     cd $BUILD_PROG_WORKING_DIR/zip30
-    cp unix/Makefile Makefile
     
     setup_toolchain
     
-    echo "LD=$CC $LDFLAGS CC=$CC $CFLAGS $LDFLAGS make -j generic"
+    make -f unix/Makefile generic
+    make -f unix/Makefile install prefix=../output
     
-    LD="$CC $LDFLAGS" CC="$CC $CFLAGS $LDFLAGS" make -j zip generic
+    cd $BUILD_PROG_WORKING_DIR
+    rm -rfv zip30*
 }

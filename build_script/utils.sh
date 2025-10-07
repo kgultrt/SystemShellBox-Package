@@ -148,3 +148,11 @@ general_apply_patch() {
         patch -p1 < $patch_file
     done
 }
+
+general_install() {
+    echo
+    echo "install.."
+    echo
+    
+    make install prefix=$BUILD_PROG_WORKING_DIR/output
+}
