@@ -1,15 +1,15 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.7"
+export BUILD_PROG_VERSION="v1.0.8"
 
 # ===================== 配置部分 =====================
-export ANDROID_NDK="/data/data/com.termux/files/home/android-sdk/ndk/28.2.13676358"
-export NDK_BUILD="${ANDROID_NDK}/ndk-build"
 export APP_INSTALL_DIR="/data/data/com.manager.ssb/files/usr"
 export APP_HOME_DIR="/data/data/com.manager.ssb/files/usr/home"
 export TARGET_ARCH="aarch64"
 export ANDROID_API=21
 export BUILD_PROG_WORKING_DIR=$PWD
+export ANDROID_NDK="${BUILD_PROG_WORKING_DIR}/ndk/28.2.13676358"
+export NDK_BUILD="${ANDROID_NDK}/ndk-build"
 export OUTPUT_LIB_DIR=$BUILD_PROG_WORKING_DIR/output/lib
 export CLEAN_TOOLS=$PWD/termux-elf-cleaner/termux-elf-cleaner
 export NEED_CLEAN_ELF="false"
@@ -45,8 +45,42 @@ load_build_script() {
     echo
     echo "Successfully loaded $files_count files!"
     echo
+    
+    local files_count=0
+    
+    if [ ! -d $BUILD_PROG_WORKING_DIR/build_script/pkg/$BRANCH ]; then
+        cil_yesandno 0 "这个分支 ($BRANCH) 是无效的，你想要修改它吗？"
+        local choose=$?
+        if [[ $choose -eq 0 ]]; then
+            change_branch
+        else
+            echo "将退出程序"
+            prog_exit 0
+        fi
+    fi
+    
+    for script_file in $BUILD_PROG_WORKING_DIR/build_script/pkg/$BRANCH/*.sh; do
+        echo "LOADING $script_file!"
+        source $script_file
+        files_count=$((files_count+1))
+    done
+    
+    echo
+    echo "Successfully loaded $files_count files!"
+    echo
 }
 
+prog_exit() {
+    local num=$1
+    
+    save_prog_data
+    
+    if [[ num -eq "" ]]; then
+        exit 0
+    fi
+    
+    exit $num
+}
 
 # ===================== 初始化和主程序 =====================
 
@@ -61,7 +95,7 @@ if [ ! -d "build_script" ]; then
     echo "1. build_script 文件夹是否存在"
     echo "2. 你所在的运行目录, 当前的运行目录是: $BUILD_PROG_WORKING_DIR"
     echo
-    exit 255
+    prog_exit 255
 else
     echo
     echo "START LOADING!"
@@ -82,6 +116,7 @@ echo "TOTAL_STEPS: ${TOTAL_STEPS}"
 PKG_TO_BUILD=0
 
 echo
+
 if [[ ! -f ${SYSTEM_CHECK_FILE} ]]; then
     echo
     check_system

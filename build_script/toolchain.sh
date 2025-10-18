@@ -36,11 +36,10 @@ setup_toolchain() {
     export CFLAGS="-fPIE -fPIC -Os \
     -DNO_MKTIME_Z -D__USE_ANDROID_STDIO -DANDROID_USER_FUNCTIONS \
     -DHAVE___FPURGE=0 -DHANDLE_MULTIBYTE -Wno-everything"
-    export LDFLAGS="-fPIE -pie"
+    export LDFLAGS="-fPIE -pie -Wl,-rpath=$APP_INSTALL_DIR/lib"
     export CPPFLAGS=""
     
     export CPPFLAGS+=" -isystem$APP_INSTALL_DIR/include/c++/v1 -isystem$APP_INSTALL_DIR/include"
-    
     export LDSHARED="${CC} -fPIE -pie -shared"
     
     if [ "$TARGET_ARCH" = "aarch64" ]; then

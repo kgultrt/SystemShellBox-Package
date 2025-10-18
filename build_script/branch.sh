@@ -9,6 +9,6 @@ change_branch() {
     
     if dialog --yesno "需要重启才能应用更改，你想现在重启吗？" 7 50; then
         clear
-        exit
+        prog_exit
     fi
 }

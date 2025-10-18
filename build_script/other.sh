@@ -30,11 +30,29 @@ result_display() {
 
 # 完整构建流程
 full_build_process() {
+    # 选择构建模式
+    build_mode=$(dialog --backtitle "Super Development Environment 编译程序 ${BUILD_PROG_VERSION}" \
+                        --title "选择构建模式" \
+                        --menu "请选择构建模式：" 15 50 5 \
+                        1 "Step-by-Step (按步骤构建)" \
+                        2 "Package-by-Package (按包构建)" \
+                        3>&1 1>&2 2>&3 3>&-)
+    
+    case $build_mode in
+        1) full_build_sbs ;;
+        2) full_build_pbp ;;
+        *) return ;;
+    esac
+}
+
+# Step-by-Step 完整构建
+full_build_sbs() {
     # 显示开始信息
     clear
     echo "==========================================="
     echo " Super Development Environment 编译程序"
     echo "==========================================="
+    echo "构建模式: Step-by-Step"
     echo "总包: ${#PACKAGES[@]} 个包"
     echo "将要构建: ${PKG_TO_BUILD} 个包"
     echo -e "\n\e[1;33m将在3秒后开始...\e[0m"
@@ -45,9 +63,9 @@ full_build_process() {
     # 准备进度显示
     local current_step=0
     
-    # 记录总开始时间（安静模式用）
+    # 记录总开始时间
     export total_start_time=$(date +%s.%N)
-    trap 'echo -e "\rPlease wait... \e[1;31m[FAILED]\e[0m 用户取消操作!" && echo && exit' SIGINT SIGTERM
+    trap 'echo -e "\rPlease wait... \e[1;31m[FAILED]\e[0m 用户取消操作!" && echo && prog_exit' SIGINT SIGTERM
     
     echo -e "\n"  # 为进度条留出空间
     
@@ -70,6 +88,117 @@ full_build_process() {
     
     # 显示完成信息
     result_display
+}
+
+# Package-by-Package 完整构建
+full_build_pbp() {
+    # 验证依赖
+    if ! validate_all_dependencies; then
+        echo -e "\e[1;31m错误: 存在未满足的依赖关系，无法继续构建!\e[0m"
+        echo "请检查包配置或依赖关系。"
+        sleep 3
+        return 1
+    fi
+    
+    # 显示开始信息
+    clear
+    echo "==========================================="
+    echo " Super Development Environment 编译程序"
+    echo "==========================================="
+    echo "构建模式: Package-by-Package"
+    echo "总包: ${#PACKAGES[@]} 个包"
+    echo "将要构建: ${PKG_TO_BUILD} 个包"
+    echo -e "\n\e[1;33m将在3秒后开始...\e[0m"
+    sleep 3
+    
+    clear
+    
+    # 记录总开始时间
+    export total_start_time=$(date +%s.%N)
+    trap 'echo -e "\rPlease wait... \e[1;31m[FAILED]\e[0m 用户取消操作!" && echo && prog_exit' SIGINT SIGTERM
+    
+    echo -e "\n"  # 为进度条留出空间
+    
+    # 显示初始进度条
+    echo -e "\n\e[1;32m包构建进度:\e[0m"
+    show_progress 0
+    
+    execute_before_steps
+    
+    # 获取按依赖顺序排列的包列表
+    local ordered_packages=($(get_enabled_packages_ordered))
+    local pkg_count=${#ordered_packages[@]}
+    local completed_packages=0
+    
+    echo -e "\e[1;36m构建顺序: ${ordered_packages[*]}\e[0m"
+    echo
+    
+    # 按依赖顺序构建包
+    for pkg in "${ordered_packages[@]}"; do
+        ((completed_packages++))
+        
+        echo -e "\n\e[1;34m正在构建包: ${PACKAGES[$pkg]} (${completed_packages}/${pkg_count})\e[0m"
+        
+        # 显示依赖信息
+        local deps_info=$(show_package_dependencies "$pkg")
+        echo -e "  \e[1;35m依赖: $deps_info\e[0m"
+        
+        # 执行包的构建步骤
+        local pkg_steps_list="${PKG_STEPS[$pkg]}"
+        local will_runing_step=$(echo "${pkg_steps_list}" | tr " " "\n")
+        local step_count=$(echo "${pkg_steps_list}" | wc -w)
+        local current_step=0
+        
+        for the_step in $will_runing_step; do
+            ((current_step++))
+            echo -e "  \e[1;36m步骤 ${current_step}/${step_count}: ${the_step}\e[0m"
+            
+            # 执行步骤函数
+            if declare -f "$the_step" > /dev/null; then
+                if ! $the_step; then
+                    echo -e "\e[1;31m错误: 步骤 ${the_step} 执行失败!\e[0m"
+                    return 1
+                fi
+            else
+                echo -e "\e[1;33m警告: 函数 ${the_step} 未定义，跳过\e[0m"
+            fi
+        done
+        
+        echo -e "\e[1;32m[OK] 包 ${PACKAGES[$pkg]} 构建完成\e[0m"
+        
+        # 更新进度条
+        local progress=$((completed_packages * 100 / pkg_count))
+        show_progress $progress
+        
+        # 时间检查
+        local end_time=$(date +%s.%N)
+        local elapsed_time=$(echo "$end_time - $total_start_time" | bc | awk '{printf "%d", $0}')
+        long_time_check $elapsed_time $completed_packages
+    done
+    
+    # 执行公共步骤（打包等）
+    execute_common_steps
+    
+    # 显示完成信息
+    result_display
+}
+
+# 执行公共步骤（打包、输出等）
+execute_common_steps() {
+    echo -e "  \e[1;36m执行收尾步骤\e[0m"
+    copy_and_realign
+    package_output
+    echo -e "\e[1;32m[OK] 收尾步骤完成\e[0m"
+}
+
+execute_before_steps() {
+    echo -e "  \e[1;36m执行初始步骤\e[0m"
+    install_dependencies
+    install_dir
+    patch_ndk
+    clone_termux_elf_cleaner
+    build_installer
+    echo -e "\e[1;32m[OK] 初始步骤完成\e[0m"
 }
 
 # 手动构建步骤
@@ -223,8 +352,11 @@ package_management_menu() {
         options=()
         options+=("0" "返回主菜单")
         options+=("1" "保存配置")
+        options+=("2" "查看包信息")
+        options+=("3" "查看依赖关系")
+        options+=("4" "验证依赖")
         
-        local i=2
+        local i=5
         for pkg in "${!PACKAGES[@]}"; do
             local status="禁用"
             [ "${PKG_ENABLE[$pkg]}" = "true" ] && status="启用"
@@ -241,6 +373,12 @@ package_management_menu() {
             break
         elif [[ $choice -eq 1 ]]; then
             save_pkg_config
+        elif [[ $choice -eq 2 ]]; then
+            show_package_info
+        elif [[ $choice -eq 3 ]]; then
+            show_dependency_graph
+        elif [[ $choice -eq 4 ]]; then
+            validate_dependencies_menu
         elif [[ -n "${pkg_keys[$choice]}" ]]; then
             configure_package "${pkg_keys[$choice]}"
         fi
@@ -378,7 +516,7 @@ main_menu() {
             7) change_branch ;;
             8) adout_branch ;;
             9) adout_this_prog ;;
-            0) clear && exit 0 ;;
+            0) clear && prog_exit 0 ;;
             *) return ;;
         esac
     done

@@ -7,7 +7,7 @@ usage() {
     echo "  -q, --quiet               安静输出"
     echo "  -s, --step [ID]           直接运行步骤"
     echo "  -l, --list                显示步骤列表"
-    exit 1
+    prog_exit 1
 }
 
 CLI_GUI=1
@@ -24,12 +24,12 @@ validate_step_id() {
     local step_id=$1
     if [[ -z "$step_id" ]]; then
         echo -e "\e[1;31m[FAILED]\e[0m 步骤ID不能为空"
-        exit 1
+        prog_exit 1
     fi
     
     if [[ $step_id -lt 0 ]] || [[ $step_id -gt $((TOTAL_STEPS - 1)) ]]; then
         echo -e "\e[1;31m[FAILED]\e[0m 步骤ID不存在: $((step_id + 1))"
-        exit 1
+        prog_exit 1
     fi
 }
 
@@ -39,7 +39,7 @@ handle_step_execution() {
     validate_step_id "$step_id"
     run_step "${STEP_NAMES[step_id]}" "${STEP_FUNCTIONS[step_id]}" "$((step_id + 1))"
     unset_CLI
-    exit 0
+    prog_exit 0
 }
 
 # 处理无GUI构建
@@ -62,6 +62,8 @@ handle_list() {
     for ((i=0; i<TOTAL_STEPS; i++)); do
         echo "$((i+1)) ${STEP_NAMES[i]}"
     done
+    
+    prog_exit 0
 }
 
 # 分发参数处理
@@ -77,8 +79,6 @@ dispatch_argument() {
 }
 
 main() {
-    save_prog_data
-    
     if [[ $IS_PROGRESS_FILE -eq 1 ]]; then
         unset_CLI
         full_build_process_progress_file $STEP_PROGRESS_FILE
@@ -102,6 +102,6 @@ main() {
         main_menu
     elif [[ $CLI_DIREECT_BUILD -eq 1 ]]; then
         unset_CLI
-        full_build_process
+        full_build_sbs
     fi
 }

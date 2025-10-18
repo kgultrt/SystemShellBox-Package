@@ -24,7 +24,7 @@ configure_libnghttp2() {
     local v=$(( _LT_CURRENT - _LT_AGE ))
     if [ ! "${_LT_CURRENT}" ] || [ "${v}" != "${_SOVERSION}" ]; then
         echo "SOVERSION guard check failed."
-        exit
+        prog_exit
     fi
     
     ./configure \
@@ -76,7 +76,7 @@ configure_libnghttp3() {
     local v=$(( _LT_CURRENT - _LT_AGE ))
     if [ ! "${_LT_CURRENT}" ] || [ "${v}" != "${_SOVERSION}" ]; then
         echo "SOVERSION guard check failed."
-        exit
+        prog_exit
     fi
     
     autoreconf

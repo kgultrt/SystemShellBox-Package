@@ -22,7 +22,7 @@ configure_curl() {
     local v=$(( _VERSIONCHANGE - _VERSIONDEL ))
     if [ ! "${_VERSIONCHANGE}" ] || [ "${v}" != "${_SOVERSION}" ]; then
         echo "SOVERSION guard check failed."
-        exit
+        prog_exit
     fi
     
     LDFLAGS+=" -Wl,-z,nodelete"

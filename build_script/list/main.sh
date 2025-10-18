@@ -7,6 +7,26 @@ adout_branch() {
     " 70 70
 }
 
+# 包依赖关系定义
+declare -A PKG_DEPENDS=(
+    [pacman]=""
+    [coreutils]=""
+    [bash]="coreutils"
+    [zlib]=""
+    [cacertificates]=""
+    [openssl]="zlib"
+    [clang]=""
+    [androidsupport]=""
+    [libbz2]=""
+    [zip]=""
+    [libnghttp2]=""
+    [libnghttp3]=""
+    [libssh2]="openssl zlib"
+    [curl]="openssl zlib libnghttp2 libnghttp3 libssh2"
+    [liblzma]=""
+    [zstd]=""
+)
+
 # 包定义结构
 declare -A PACKAGES=(
     [pacman]="pacman"

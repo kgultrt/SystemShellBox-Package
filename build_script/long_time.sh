@@ -34,13 +34,13 @@ long_time_check() {
                         
                         echo "已保存!"
                         
-                        exit
+                        prog_exit
                     else
                         cil_yesandno 2 "将会不保存退出，真的不保存吗？"
                         local choice3=$?
                         
                         if [[ $choice3 -eq 0 ]]; then
-                            exit
+                            prog_exit
                         else
                             echo "IS_PROGRESS_FILE=1" >> "$PROGRESS_FILE"
                             echo "TOO_LONG_TIME_BREAK_WARN_TIMES=${TOO_LONG_TIME_BREAK_WARN_TIMES}" >> "$PROGRESS_FILE"
@@ -52,7 +52,7 @@ long_time_check() {
                             
                             echo "已保存!"
                             
-                            exit
+                            prog_exit
                         fi
                     fi
                     ;;
@@ -93,7 +93,7 @@ full_build_process_progress_file() {
     
     # 记录总开始时间（安静模式用）
     export total_start_time=$(date +%s.%N)
-    trap 'echo -e "\rPlease wait... \e[1;31m[FAILED]\e[0m 用户取消操作!" && echo && exit' SIGINT SIGTERM
+    trap 'echo -e "\rPlease wait... \e[1;31m[FAILED]\e[0m 用户取消操作!" && echo && prog_exit' SIGINT SIGTERM
     
     echo -e "\n"  # 为进度条留出空间
     
