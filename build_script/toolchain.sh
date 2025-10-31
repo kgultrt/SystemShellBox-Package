@@ -4,6 +4,13 @@
 
 # 设置工具链
 setup_toolchain() {
+    local toolchain_load_function=$1
+    
+    if [[ toolchain_load_function -ne "" ]]; then
+        $toolchain_load_function
+        return 0
+    fi
+    
     TOOLCHAIN_ROOT="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64"
     case "${TARGET_ARCH}" in
         aarch64)
