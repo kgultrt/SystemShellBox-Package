@@ -2,5 +2,5 @@ output
 ndk/
 build_script/config/data.txt
 build_script/system.sh
-musl
+musl*
 musl-locales

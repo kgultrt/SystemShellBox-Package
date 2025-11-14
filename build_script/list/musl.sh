@@ -24,7 +24,7 @@ declare -A PKG_ENABLE=(
 
 # 包版本配置
 declare -A PKG_VERSIONS=(
-    [musl]="0.0.0"
+    [musl]="1.2.5"
     [hello]="1.0"
 )
 
