@@ -11,6 +11,8 @@ declare -A CONFIG_ITEMS=(
     [TO_BREAK_TIME]="每隔多久暂停一次 (单位: 小时)"
     [TOO_LONG_TIME_BREAK]="自行暂停超长时间构建"
     [DISADIE_PROGRESS]="禁用进度条"
+    [APP_DIR]="应用目录"
+    [APP_LIB_DIR]="应用lib目录"
 )
 
 # 类型定义：变量=输入方式
@@ -26,4 +28,6 @@ declare -A CONFIG_TYPES=(
     [TO_BREAK_TIME]="number"
     [TOO_LONG_TIME_BREAK]="boolnum"
     [DISADIE_PROGRESS]="boolnum"
+    [APP_DIR]="path"
+    [APP_LIB_DIR]="path"
 )

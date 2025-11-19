@@ -19,6 +19,8 @@ adout_this_prog() {
     全局计数器: ${TOO_LONG_TIME_BREAK_WARN_TIMES}
     进度文件模式: ${IS_PROGRESS_FILE}
     
+    BUILD_PROG_WORKING_DIR：$BUILD_PROG_WORKING_DIR
+    
     
     
     Change Log:

@@ -1,10 +1,12 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.8"
+export BUILD_PROG_VERSION="v1.0.9"
 
 # ===================== 配置部分 =====================
-export APP_INSTALL_DIR="/data/data/com.manager.ssb/files/usr"
-export APP_HOME_DIR="/data/data/com.manager.ssb/files/usr/home"
+export APP_DIR="/data/data/com.manager.ssb/files"
+export APP_INSTALL_DIR="$APP_DIR/usr"
+export APP_HOME_DIR="$APP_INSTALL_DIR/home"
+export APP_LIB_DIR="$APP_INSTALL_DIR/lib"
 export TARGET_ARCH="aarch64"
 export ANDROID_API=21
 export BUILD_PROG_WORKING_DIR=$PWD
@@ -32,6 +34,7 @@ export IS_LIUNX=0
 export LIUNX_TYPE=0
 export BRANCH=$(cat $BUILD_PROG_WORKING_DIR/branch)
 export NDK_HAS_PATCHED=0
+export SPM_HAS_BUILDED=false
 
 load_build_script() {
     local files_count=0

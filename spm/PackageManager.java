@@ -260,7 +260,7 @@ public class PackageManager {
     private Path verifyPackageIntegrity(Path pkgFile) throws SPMException {
         Path tempDir;
         try {
-            tempDir = Files.createDirectory(Config.getTmpPath());
+            tempDir = Files.createTempDirectory(Config.getTmpPath(), "spm_");
         } catch (IOException e) {
             throw new SPMException("Failed to create temp directory", e);
         }

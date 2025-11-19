@@ -1,36 +1,37 @@
 adout_branch() {
     dialog --msgbox "
-    musl 分支:
-        musl test
+    main_glibc 分支:
+        原 musl test
+        现 glibc
     " 70 70
 }
 
 declare -A PKG_DEPENDS=(
-    [musl]=""
-    [hello]="musl"
+    [glibc]=""
+    [hello]="glibc"
 )
 
 # 包定义结构
 declare -A PACKAGES=(
-    [musl]="musl"
+    [glibc]="glibc"
     [hello]="hello"
 )
 
 # 包配置默认值
 declare -A PKG_ENABLE=(
-    [musl]="true"
+    [glibc]="true"
     [hello]="true"
 )
 
 # 包版本配置
 declare -A PKG_VERSIONS=(
-    [musl]="1.2.5"
+    [glibc]="2.41"
     [hello]="1.0"
 )
 
 # 包构建步骤映射 - 现在使用函数名而不是数字ID
 declare -A PKG_STEPS=(
-    [musl]="configure_musl build_musl"
+    [glibc]="configure_glibc build_glibc"
     [hello]="build_hello"
 )
 
@@ -42,8 +43,8 @@ declare -a STEP_NAMES=(
     "克隆termux-elf-cleaner"
     "构建环境安装程序"
     
-    "配置musl"
-    "构建musl"
+    "配置glibc"
+    "构建glibc"
     
     "构建hello"
     
@@ -58,8 +59,8 @@ declare -a STEP_FUNCTIONS=(
     "clone_termux_elf_cleaner"
     "build_installer"
     
-    "configure_musl" 
-    "build_musl"
+    "configure_glibc" 
+    "build_glibc"
     
     "build_hello"
     

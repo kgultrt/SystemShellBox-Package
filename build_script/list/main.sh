@@ -4,6 +4,7 @@ adout_branch() {
         项目的主干分支。
         
         pacman仍未完成
+        spm 完成!
     " 70 70
 }
 
@@ -25,6 +26,7 @@ declare -A PKG_DEPENDS=(
     [curl]="openssl zlib libnghttp2 libnghttp3 libssh2"
     [liblzma]=""
     [zstd]=""
+    [spm]=""
 )
 
 # 包定义结构
@@ -45,6 +47,7 @@ declare -A PACKAGES=(
     [curl]="curl"
     [liblzma]="liblzma"
     [zstd]="zstd"
+    [spm]="spm"
 )
 
 # 包配置默认值
@@ -65,6 +68,7 @@ declare -A PKG_ENABLE=(
     [curl]="true"
     [liblzma]="true"
     [zstd]="true"
+    [spm]="true"
 )
 
 # 包版本配置
@@ -85,6 +89,7 @@ declare -A PKG_VERSIONS=(
     [curl]="8.14.1"
     [liblzma]="5.8.1"
     [zstd]="1.5.7"
+    [spm]="1.0.0"
 )
 
 # 包构建步骤映射 - 现在使用函数名而不是数字ID
@@ -105,6 +110,7 @@ declare -A PKG_STEPS=(
     [curl]="configure_curl apply_patches_curl build_curl"
     [liblzma]="configure_liblzma apply_patches_liblzma build_liblzma"
     [zstd]="configure_zstd apply_patches_zstd build_zstd"
+    [spm]="build_spm"
 )
 
 # 步骤定义 - 保持顺序不变
@@ -114,6 +120,8 @@ declare -a STEP_NAMES=(
     "修补NDK"
     "克隆termux-elf-cleaner"
     "构建环境安装程序"
+    
+    "构建spm"
     
     "下载pacman源码"
     "应用pacman补丁"
@@ -185,6 +193,8 @@ declare -a STEP_FUNCTIONS=(
     "patch_ndk"
     "clone_termux_elf_cleaner"
     "build_installer"
+    
+    "build_spm"
     
     "configure_pacman"
     "apply_patches_pacman"

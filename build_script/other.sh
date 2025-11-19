@@ -156,8 +156,7 @@ full_build_pbp() {
             # 执行步骤函数
             if declare -f "$the_step" > /dev/null; then
                 if ! $the_step; then
-                    echo -e "\e[1;31m错误: 步骤 ${the_step} 执行失败!\e[0m"
-                    return 1
+                    echo -e "\e[1;31m警告: 步骤 ${the_step} 执行失败!\e[0m"
                 fi
             else
                 echo -e "\e[1;33m警告: 函数 ${the_step} 未定义，跳过\e[0m"
@@ -165,6 +164,27 @@ full_build_pbp() {
         done
         
         echo -e "\e[1;32m[OK] 包 ${PACKAGES[$pkg]} 构建完成\e[0m"
+        
+        if $SPM_HAS_BUILDED; then
+            cd $BUILD_PROG_WORKING_DIR/spm
+            
+            rm -rfv com
+            
+            mkdir -p com/spm
+            cd com/spm
+            
+            javac ../../*.java
+            mv ../../*.class .
+            
+            cd $BUILD_PROG_WORKING_DIR/spm
+            
+            java com/spm/SPM build $BUILD_PROG_WORKING_DIR/output --name ${PACKAGES[$pkg]} --version "${PKG_VERSIONS[$pkg]}" --versionCode 1
+            
+            cd $BUILD_PROG_WORKING_DIR
+            
+            rm -rfv $BUILD_PROG_WORKING_DIR/output
+            install_dir
+        fi
         
         # 更新进度条
         local progress=$((completed_packages * 100 / pkg_count))
@@ -198,6 +218,7 @@ execute_before_steps() {
     patch_ndk
     clone_termux_elf_cleaner
     build_installer
+    build_spm
     echo -e "\e[1;32m[OK] 初始步骤完成\e[0m"
 }
 
@@ -253,9 +274,14 @@ edit_config() {
     local type="${CONFIG_TYPES[$var]}"
     local current="${!var}"
     local new_value
+    
+    echo $var
 
     case "$type" in
-        path|number)
+        path)
+            new_value=$(dialog --inputbox "输入 ${CONFIG_ITEMS[$var]}:" 8 50 "$current" 3>&1 1>&2 2>&3 3>&-)
+            ;;
+        number)
             new_value=$(dialog --inputbox "输入 ${CONFIG_ITEMS[$var]}:" 8 50 "$current" 3>&1 1>&2 2>&3 3>&-)
             ;;
         bool)
@@ -278,6 +304,12 @@ edit_config() {
     esac
 
     [ -n "$new_value" ] && export "$var=$new_value"
+    
+    if [[ "$var" == "APP_DIR" ]]; then
+         export APP_INSTALL_DIR="$APP_DIR/usr"
+         export APP_HOME_DIR="$APP_INSTALL_DIR/home"
+         export APP_LIB_DIR="$APP_INSTALL_DIR/lib"
+    fi
 }
 
 configure_settings() {
