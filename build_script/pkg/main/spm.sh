@@ -17,4 +17,6 @@ build_spm() {
     
     echo "Suc!"
     SPM_HAS_BUILDED=true
+    
+    cd ${BUILD_PROG_WORKING_DIR}
 }
