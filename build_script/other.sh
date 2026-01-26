@@ -165,27 +165,6 @@ full_build_pbp() {
         
         echo -e "\e[1;32m[OK] 包 ${PACKAGES[$pkg]} 构建完成\e[0m"
         
-        if $SPM_HAS_BUILDED; then
-            cd $BUILD_PROG_WORKING_DIR/spm
-            
-            rm -rfv com
-            
-            mkdir -p com/spm
-            cd com/spm
-            
-            javac ../../*.java
-            mv ../../*.class .
-            
-            cd $BUILD_PROG_WORKING_DIR/spm
-            
-            java com/spm/SPM build $BUILD_PROG_WORKING_DIR/output --name ${PACKAGES[$pkg]} --version "${PKG_VERSIONS[$pkg]}" --versionCode 1
-            
-            cd $BUILD_PROG_WORKING_DIR
-            
-            rm -rfv $BUILD_PROG_WORKING_DIR/output
-            install_dir
-        fi
-        
         # 更新进度条
         local progress=$((completed_packages * 100 / pkg_count))
         show_progress $progress
@@ -466,12 +445,21 @@ clean_output() {
         echo "清理输出文件..."
         
         rm -rfv termux-elf-cleaner coreutils-* output bash-* zlib-* \
-            openssl-* base $NDK_FILE
+            openssl-* base $NDK_FILE libintl-lite
+            
         
         cd installer
         rm -rfv libs obj
         cd $BUILD_PROG_WORKING_DIR
         rm -rfv base
+        
+        cd $BUILD_PROG_WORKING_DIR/locale
+        make clean
+        
+        LOCALE_HAS_BUILDED=false
+        SPM_HAS_BUILDED=false
+        
+        cd $BUILD_PROG_WORKING_DIR
         
         dialog --msgbox "输出文件已清理！" 6 40
     fi

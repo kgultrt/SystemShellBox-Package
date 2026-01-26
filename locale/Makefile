@@ -1,6 +1,6 @@
 CFLAGS = -fPIC -O2 -Iinclude -std=c99 -Wall
 LDFLAGS = -shared -Wl,-soname,liblocal.so.1 -ldl
-PREFIX = /data/data/com.termux/files/usr
+PREFIX = 
 
 SRCS = src/locale_core.c \
     src/langinfo.c \

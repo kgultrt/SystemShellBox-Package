@@ -11,7 +11,8 @@ setup_toolchain() {
         return 0
     fi
     
-    TOOLCHAIN_ROOT="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64"
+    export TOOLCHAIN_ROOT="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64"
+    
     case "${TARGET_ARCH}" in
         aarch64)
             export TARGET_HOST="aarch64-linux-android"
@@ -49,6 +50,11 @@ setup_toolchain() {
     export CPPFLAGS+=" -isystem$APP_INSTALL_DIR/include/c++/v1 -isystem$APP_INSTALL_DIR/include"
     export LDSHARED="${CC} -fPIE -pie -shared"
     
+    if $LOCALE_HAS_BUILDED; then
+        LDFLAGS="-L$OUTPUT_LIB_DIR -llocal $LDFLAGS"
+        CPPFLAGS="-I$OUTPUT_INC_DIR $CPPFLAGS"
+    fi
+    
     if [ "$TARGET_ARCH" = "aarch64" ]; then
         CFLAGS+=" -march=armv8-a+crc"
         CXXFLAGS+=" -march=armv8-a+crc"
@@ -64,6 +70,16 @@ setup_toolchain() {
     export ac_cv_func_setgrent=no
     export ac_cv_func_getgrent=no
     export ac_cv_func_endgrent=no
+    
+    echo
+    echo "__TOOLCHAIN__"
+    echo "info:"
+    echo "CFLAGS= ${CFLAGS}"
+    echo "CPPFLAGS= ${CPPFLAGS}"
+    echo "LDFLAGS= ${LDFLAGS}"
+    echo "LDSHARED= ${LDSHARED}"
+    echo "CXXFLAGS= ${CXXFLAGS}"
+    echo
 }
 
 unsetup_toolchain() {
@@ -79,4 +95,6 @@ unsetup_toolchain() {
     unset CXXFLAGS
     unset LDFLAGS
     unset LDSHARED
+    
+    echo "__UNSET_TOOLCHAIN__"
 }

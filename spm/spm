@@ -1,1 +1,0 @@
-/system/bin/dalvikvm -cp /data/data/com.manager.ssb/lib/spm/classes.dex com.spm.SPM $@

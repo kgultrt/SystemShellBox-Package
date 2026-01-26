@@ -13,6 +13,7 @@ export BUILD_PROG_WORKING_DIR=$PWD
 export ANDROID_NDK="${BUILD_PROG_WORKING_DIR}/ndk/28.2.13676358"
 export NDK_BUILD="${ANDROID_NDK}/ndk-build"
 export OUTPUT_LIB_DIR=$BUILD_PROG_WORKING_DIR/output/lib
+export OUTPUT_INC_DIR=$BUILD_PROG_WORKING_DIR/output/include
 export CLEAN_TOOLS=$PWD/termux-elf-cleaner/termux-elf-cleaner
 export NEED_CLEAN_ELF="false"
 export IS_QUIET=0
@@ -35,6 +36,7 @@ export LIUNX_TYPE=0
 export BRANCH=$(cat $BUILD_PROG_WORKING_DIR/branch)
 export NDK_HAS_PATCHED=0
 export SPM_HAS_BUILDED=false
+export LOCALE_HAS_BUILDED=false
 
 load_build_script() {
     local files_count=0
@@ -155,5 +157,7 @@ load_pkg_config
 load_progress_file
 
 # 启动
+echo "load Complete! we will start it!"
 echo "Starting..."
+
 main $@

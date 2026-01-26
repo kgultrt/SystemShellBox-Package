@@ -154,5 +154,5 @@ general_install() {
     echo "install.."
     echo
     
-    make install prefix=$BUILD_PROG_WORKING_DIR/output
+    make install prefix=$BUILD_PROG_WORKING_DIR/output PREFIX=$BUILD_PROG_WORKING_DIR/output
 }
