@@ -154,5 +154,19 @@ general_install() {
     echo "install.."
     echo
     
-    make install prefix=$BUILD_PROG_WORKING_DIR/output PREFIX=$BUILD_PROG_WORKING_DIR/output
+    make install prefix=$BUILD_PROG_WORKING_DIR/output PREFIX=$BUILD_PROG_WORKING_DIR/output LIBDIR=$BUILD_PROG_WORKING_DIR/output/lib libdir=$BUILD_PROG_WORKING_DIR/output/lib
+}
+
+general_install_2() {
+    echo
+    echo "install (using DESTDIR).."
+    echo
+    
+    make install DESTDIR=$BUILD_PROG_WORKING_DIR/output
+}
+
+get_build_file_path() {
+    local pkg_name=$1
+    
+    echo $BUILD_PROG_WORKING_DIR/builderfiles/$pkg_name
 }

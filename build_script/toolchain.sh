@@ -73,12 +73,14 @@ setup_toolchain() {
     
     echo
     echo "__TOOLCHAIN__"
+    echo "======================================="
     echo "info:"
     echo "CFLAGS= ${CFLAGS}"
     echo "CPPFLAGS= ${CPPFLAGS}"
     echo "LDFLAGS= ${LDFLAGS}"
     echo "LDSHARED= ${LDSHARED}"
     echo "CXXFLAGS= ${CXXFLAGS}"
+    echo "======================================="
     echo
 }
 

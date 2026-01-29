@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export BUILD_PROG_VERSION="v1.0.9"
+export BUILD_PROG_VERSION="v1.0.9.1"
 
 # ===================== 配置部分 =====================
 export APP_DIR="/data/data/com.manager.ssb/files"

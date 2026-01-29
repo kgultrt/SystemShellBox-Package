@@ -50,7 +50,7 @@ public class SPM {
     
     private static void printUsage() {
         System.out.println("Super Package Manager (SPM) - Version 1");
-        System.out.println("Usage: java SPM <command> [options]");
+        System.out.println("Usage: spm <command> [options]");
         System.out.println();
         System.out.println("Commands:");
         System.out.println("  install <packages...>    Install packages");

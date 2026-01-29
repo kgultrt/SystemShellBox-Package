@@ -6,14 +6,14 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Config {
-    public static final String ROOT = "/data/data/com.manager.ssb/files/usr/";
-    public static final String DB_PATH = "/data/data/com.manager.ssb/files/usr/etc/spm/db";
-    public static final String TMP_PATH = "/data/data/com.manager.ssb/files/usr/tmp/spm";
-    public static final String SNAPSHOTS_DIR = "/data/data/com.manager.ssb/files/usr/tmp/spm/snaps";
-    public static final String PKG_CACHE = "/data/data/com.manager.ssb/files/usr/tmp/spm/cache/pkg";
-    public static final String REPO_DIR = "/data/data/com.manager.ssb/files/usr/home/repo";
-    public static final String CONFIG_DIR = "/data/data/com.manager.ssb/files/usr/etc/spm";
-    public static final String REPO_CONFIG = "/data/data/com.manager.ssb/files/usr/etc/spm/repos.json";
+    public static final String ROOT = "./";
+    public static final String DB_PATH = ROOT + "etc/spm/db";
+    public static final String TMP_PATH = ROOT + "tmp/spm";
+    public static final String SNAPSHOTS_DIR = ROOT + "tmp/spm/snaps";
+    public static final String PKG_CACHE = ROOT + "tmp/spm/cache/pkg";
+    public static final String REPO_DIR = ROOT + "home/repo";
+    public static final String CONFIG_DIR = ROOT + "etc/spm";
+    public static final String REPO_CONFIG = ROOT + "etc/spm/repos.json";
     public static final int MAX_SNAPSHOTS = 10;
     public static final String BUILD_DIR = "./spm_build";
     

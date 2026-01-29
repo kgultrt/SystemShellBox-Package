@@ -27,6 +27,8 @@ declare -A PKG_DEPENDS=(
     [liblzma]=""
     [zstd]=""
     [spm]=""
+    [pcre2]=""
+    [libandroid-selinux]="pcre2"
 )
 
 # 包定义结构
@@ -48,6 +50,8 @@ declare -A PACKAGES=(
     [liblzma]="liblzma"
     [zstd]="zstd"
     [spm]="spm"
+    [pcre2]="pcre2"
+    [libandroid-selinux]="libandroid-selinux"
 )
 
 # 包配置默认值
@@ -69,6 +73,8 @@ declare -A PKG_ENABLE=(
     [liblzma]="true"
     [zstd]="true"
     [spm]="true"
+    [pcre2]="true"
+    [libandroid-selinux]="true"
 )
 
 # 包版本配置
@@ -90,6 +96,8 @@ declare -A PKG_VERSIONS=(
     [liblzma]="5.8.1"
     [zstd]="1.5.7"
     [spm]="1.0.0"
+    [pcre2]="10.47"
+    [libandroid-selinux]="14.0.0.11"
 )
 
 # 包构建步骤映射 - 现在使用函数名而不是数字ID
@@ -111,6 +119,8 @@ declare -A PKG_STEPS=(
     [liblzma]="configure_liblzma apply_patches_liblzma build_liblzma"
     [zstd]="configure_zstd apply_patches_zstd build_zstd"
     [spm]="build_spm"
+    [pcre2]="configure_pcre2 apply_patches_pcre2 build_pcre2"
+    [libandroid-selinux]="configure_libandroid-selinux apply_patches_libandroid-selinux build_libandroid-selinux"
 )
 
 # 步骤定义 - 保持顺序不变
@@ -182,6 +192,14 @@ declare -a STEP_NAMES=(
     "下载和配置 zstd"
     "应用 zstd 补丁"
     "编译 zstd"
+    
+    "下载和配置 pcre2"
+    "应用 pcre2 补丁"
+    "编译 pcre2"
+    
+    "下载和配置 libandroid-selinux"
+    "应用 libandroid-selinux 补丁"
+    "编译 libandroid-selinux"
     
     "复制和重新对齐文件"
     "打包输出"
@@ -255,6 +273,14 @@ declare -a STEP_FUNCTIONS=(
     "configure_zstd"
     "apply_patches_zstd"
     "build_zstd"
+    
+    "configure_pcre2"
+    "apply_patches_pcre2"
+    "build_pcre2"
+    
+    "configure_libandroid-selinux"
+    "apply_patches_libandroid-selinux"
+    "build_libandroid-selinux"
     
     "copy_and_realign"
     "package_output"
